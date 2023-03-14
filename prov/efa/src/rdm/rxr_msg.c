@@ -578,10 +578,7 @@ int rxr_msg_handle_unexp_match(struct rxr_ep *ep,
 
 	srx = rx_entry->peer_rx_entry.srx;
 
-	// TODO - populate rx_entry->fi_peer_rx_entry with info required by the SHM provider
-	// EFA provider only needs pkt_entry. The rest of the info is in the rxr_op_entry
-	// The SHM provider will only use fi_peer_rx_entry, not rxr_op_entry
-	rx_entry->peer_rx_entry.owner_context = pkt_entry;
+	rxr_msg_update_peer_rx_entry(&rx_entry->peer_rx_entry, rx_entry, op);
 
 	if (op == ofi_op_msg)
 		return srx->peer_ops->start_msg(&rx_entry->peer_rx_entry);
@@ -642,7 +639,7 @@ struct rxr_op_entry *rxr_msg_alloc_rx_entry(struct rxr_ep *ep,
 
 	rx_entry->cq_entry.op_context = msg->context;
 
-	// TODO - set fi_peer_rx_entry fields required by SHM provider when allocating
+	rxr_msg_update_peer_rx_entry(&rx_entry->peer_rx_entry, rx_entry, op);
 
 	return rx_entry;
 }
