@@ -929,6 +929,12 @@ static int rxr_ep_ctrl(struct fid *fid, int command, void *arg)
 			if (ret < 0)
 				goto out;
 			fi_setname(&ep->shm_ep->fid, shm_ep_name, shm_ep_name_len);
+
+			/* Bind srx to shm ep */
+			ret = fi_ep_bind(ep->shm_ep, &ep->peer_srx.ep_fid.fid, 0);
+			if (ret)
+				goto out;
+
 			ret = fi_enable(ep->shm_ep);
 			if (ret)
 				goto out;
@@ -2240,6 +2246,9 @@ int rxr_endpoint(struct fid_domain *domain, struct fi_info *info,
 	struct rxr_ep *rxr_ep = NULL;
 	struct fi_cq_attr cq_attr;
 	int ret, retv, i;
+	struct fi_peer_srx_context peer_srx_context = {0};
+	struct fi_rx_attr peer_srx_attr = {0};
+	struct fid_ep *peer_srx_ep = NULL;
 
 	rxr_ep = calloc(1, sizeof(*rxr_ep));
 	if (!rxr_ep)
@@ -2259,6 +2268,12 @@ int rxr_endpoint(struct fid_domain *domain, struct fi_info *info,
 	efa_rdm_peer_srx_construct(rxr_ep, &rxr_ep->peer_srx);
 
 	if (efa_domain->shm_domain) {
+		peer_srx_context.srx = &rxr_ep->peer_srx;
+		peer_srx_attr.op_flags |= FI_PEER;
+		ret = fi_srx_context(efa_domain->shm_domain, &peer_srx_attr, &peer_srx_ep, &peer_srx_context);
+		if (ret)
+			goto err_destroy_base_ep;
+
 		assert(!strcmp(efa_domain->shm_info->fabric_attr->name, "shm"));
 		ret = fi_endpoint(efa_domain->shm_domain, efa_domain->shm_info,
 				  &rxr_ep->shm_ep, rxr_ep);
