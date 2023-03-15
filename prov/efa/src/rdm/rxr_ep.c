@@ -276,26 +276,12 @@ int rxr_ep_post_user_recv_buf(struct rxr_ep *ep, struct rxr_op_entry *rx_entry, 
  */
 int rxr_ep_post_internal_rx_pkt(struct rxr_ep *ep, uint64_t flags, enum rxr_lower_ep_type lower_ep_type)
 {
-	struct iovec msg_iov;
 	void *desc;
 	struct rxr_pkt_entry *rx_pkt_entry = NULL;
 	int ret = 0;
 
-	switch (lower_ep_type) {
-	case SHM_EP:
-		rx_pkt_entry = rxr_pkt_entry_alloc(ep, ep->shm_rx_pkt_pool, RXR_PKT_FROM_SHM_RX_POOL);
-		break;
-	case EFA_EP:
-		rx_pkt_entry = rxr_pkt_entry_alloc(ep, ep->efa_rx_pkt_pool, RXR_PKT_FROM_EFA_RX_POOL);
-		break;
-	default:
-		/* Coverity will complain about this being a dead code segment,
-		 * but it is useful for future proofing.
-		 */
-		EFA_WARN(FI_LOG_EP_CTRL,
-			"invalid lower EP type %d\n", lower_ep_type);
-		assert(0 && "invalid lower EP type\n");
-	}
+	rx_pkt_entry = rxr_pkt_entry_alloc(ep, ep->efa_rx_pkt_pool, RXR_PKT_FROM_EFA_RX_POOL);
+
 	if (OFI_UNLIKELY(!rx_pkt_entry)) {
 		EFA_WARN(FI_LOG_EP_CTRL,
 			"Unable to allocate rx_pkt_entry\n");
@@ -304,48 +290,20 @@ int rxr_ep_post_internal_rx_pkt(struct rxr_ep *ep, uint64_t flags, enum rxr_lowe
 
 	rx_pkt_entry->x_entry = NULL;
 
-	msg_iov.iov_base = (void *)rxr_pkt_start(rx_pkt_entry);
-	msg_iov.iov_len = ep->mtu_size;
-
-	switch (lower_ep_type) {
-	case SHM_EP:
-		/* pre-post buffer with shm */
 #if ENABLE_DEBUG
-		dlist_insert_tail(&rx_pkt_entry->dbg_entry,
-				  &ep->rx_posted_buf_shm_list);
-#endif
-		desc = NULL;
-		ret = fi_recvv(ep->shm_ep, &msg_iov, &desc, 1, FI_ADDR_UNSPEC, rx_pkt_entry);
-		if (OFI_UNLIKELY(ret)) {
-			rxr_pkt_entry_release_rx(ep, rx_pkt_entry);
-			EFA_WARN(FI_LOG_EP_CTRL,
-				"failed to post buf for shm  %d (%s)\n", -ret,
-				fi_strerror(-ret));
-			return ret;
-		}
-		ep->shm_rx_pkts_posted++;
-		break;
-	case EFA_EP:
-#if ENABLE_DEBUG
-		dlist_insert_tail(&rx_pkt_entry->dbg_entry,
+	dlist_insert_tail(&rx_pkt_entry->dbg_entry,
 				  &ep->rx_posted_buf_list);
 #endif
-		desc = fi_mr_desc(rx_pkt_entry->mr);
-		ret = rxr_pkt_entry_recv(ep, rx_pkt_entry, &desc, flags);
-		if (OFI_UNLIKELY(ret)) {
-			rxr_pkt_entry_release_rx(ep, rx_pkt_entry);
-			EFA_WARN(FI_LOG_EP_CTRL,
-				"failed to post buf %d (%s)\n", -ret,
-				fi_strerror(-ret));
-			return ret;
-		}
-		ep->efa_rx_pkts_posted++;
-		break;
-	default:
+	desc = fi_mr_desc(rx_pkt_entry->mr);
+	ret = rxr_pkt_entry_recv(ep, rx_pkt_entry, &desc, flags);
+	if (OFI_UNLIKELY(ret)) {
+		rxr_pkt_entry_release_rx(ep, rx_pkt_entry);
 		EFA_WARN(FI_LOG_EP_CTRL,
-			"invalid lower EP type %d\n", lower_ep_type);
-		assert(0 && "invalid lower EP type\n");
+			"failed to post buf %d (%s)\n", -ret,
+			fi_strerror(-ret));
+		return ret;
 	}
+	ep->efa_rx_pkts_posted++;
 
 	return 0;
 }
@@ -1608,14 +1566,6 @@ void rxr_ep_progress_post_internal_rx_pkts(struct rxr_ep *ep)
 
 	ep->efa_rx_pkts_to_post = 0;
 
-	if (ep->shm_ep) {
-		err = rxr_ep_bulk_post_internal_rx_pkts(ep, ep->shm_rx_pkts_to_post, SHM_EP);
-		if (err)
-			goto err_exit;
-
-		ep->shm_rx_pkts_to_post = 0;
-	}
-
 	return;
 
 err_exit:
@@ -1632,10 +1582,6 @@ static inline ssize_t rxr_ep_send_queued_pkts(struct rxr_ep *ep,
 
 	dlist_foreach_container_safe(pkts, struct rxr_pkt_entry,
 				     pkt_entry, entry, tmp) {
-		if (ep->use_shm_for_tx && rxr_ep_get_peer(ep, pkt_entry->addr)->is_local) {
-			dlist_remove(&pkt_entry->entry);
-			continue;
-		}
 
 		/* If send succeeded, pkt_entry->entry will be added
 		 * to peer->outstanding_tx_pkts. Therefore, it must
