@@ -99,22 +99,6 @@ int rxr_msg_select_rtm(struct rxr_ep *rxr_ep, struct rxr_op_entry *tx_entry, int
 	iface = tx_entry->desc[0] ? ((struct efa_mr*) tx_entry->desc[0])->peer.iface : FI_HMEM_SYSTEM;
 	hmem_info = rxr_ep_domain(rxr_ep)->hmem_info;
 
-	if (peer->is_local && rxr_ep->use_shm_for_tx) {
-		/* Use shm for intra instance message.
-		 *
-		 * Shm provider support delivery complete, so we do not need to
-		 * use DC version of EAGER RTM.
-		 *
-		 * Use EAGER RTM for small messages to achieve lower latency.
-		 * This applies to data on both system and cuda buffers.
-		 * The threshold is determined from osu_latency result on p4d.24xlarge.
-		 */
-		if (tx_entry->total_len <= hmem_info[iface].max_intra_eager_size)
-			return RXR_EAGER_MSGRTM_PKT + tagged;
-
-		return RXR_LONGREAD_MSGRTM_PKT + tagged;
-	}
-
 	if (tx_entry->fi_flags & FI_INJECT)
 		delivery_complete_requested = false;
 	else
@@ -170,21 +154,6 @@ ssize_t rxr_msg_post_rtm(struct rxr_ep *ep, struct rxr_op_entry *tx_entry, int u
 	rtm_type = rxr_msg_select_rtm(ep, tx_entry, use_p2p);
 	assert(rtm_type >= RXR_REQ_PKT_BEGIN);
 
-	if (peer->is_local && ep->use_shm_for_tx) {
-		/*
-		 * We know shm's capablity, so no need to check handshake.
-		 * AWS Neuron and SynapseAI are currently not supported by the SHM provider.
-		 */
-
-		if (efa_mr_is_neuron(tx_entry->desc[0]) || efa_mr_is_synapseai(tx_entry->desc[0])) {
-			EFA_WARN(FI_LOG_CQ,
-			"Hmem iface: %s is currently not supported by the SHM provider\n",
-			fi_tostr(&((struct efa_mr *)tx_entry->desc[0])->peer.iface, FI_TYPE_HMEM_IFACE));
-			return -FI_EINVAL;
-		}
-		return rxr_pkt_post_req(ep, tx_entry, rtm_type, 0, 0);
-	}
-
 	if (rtm_type < RXR_EXTRA_REQ_PKT_BEGIN) {
 		/* rtm requires only baseline feature, which peer should always support. */
 		return rxr_pkt_post_req(ep, tx_entry, rtm_type, 0, 0);
@@ -213,6 +182,7 @@ ssize_t rxr_msg_generic_send(struct fid_ep *ep, const struct fi_msg *msg,
 	ssize_t err, ret, use_p2p;
 	struct rxr_op_entry *tx_entry;
 	struct efa_rdm_peer *peer;
+	struct fi_msg_tagged tmsg = {0};
 
 	rxr_ep = container_of(ep, struct rxr_ep, base_ep.util_ep.ep_fid.fid);
 	assert(msg->iov_count <= rxr_ep->tx_iov_limit);
@@ -227,6 +197,26 @@ ssize_t rxr_msg_generic_send(struct fid_ep *ep, const struct fi_msg *msg,
 
 	peer = rxr_ep_get_peer(rxr_ep, msg->addr);
 	assert(peer);
+
+	if (peer->is_local && rxr_ep->use_shm_for_tx) {
+		/*
+		 * AWS Neuron and SynapseAI are currently not supported by the SHM provider.
+		 */
+		if (efa_mr_is_neuron(msg->desc[0]) || efa_mr_is_synapseai(msg->desc[0])) {
+			EFA_WARN(FI_LOG_CQ,
+			"Hmem iface: %s is currently not supported by the SHM provider\n",
+			fi_tostr(&((struct efa_mr *)msg->desc[0])->peer.iface, FI_TYPE_HMEM_IFACE));
+			return -FI_EINVAL;
+		}
+		if (op == ofi_op_msg) {
+			return fi_sendmsg(rxr_ep->shm_ep, msg, flags);
+		} else {
+			assert(op == ofi_op_tagged);
+			rxr_tmsg_construct(&tmsg, msg->msg_iov, msg->desc, msg->iov_count, msg->addr,
+				   msg->context, msg->data, tag);
+			return fi_tsendmsg(rxr_ep->shm_ep, &tmsg, flags);
+		}
+	}
 
 	if (peer->flags & EFA_RDM_PEER_IN_BACKOFF) {
 		err = -FI_EAGAIN;
