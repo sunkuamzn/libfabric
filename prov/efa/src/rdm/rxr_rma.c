@@ -119,12 +119,12 @@ ssize_t rxr_rma_post_efa_emulated_read(struct rxr_ep *ep, struct rxr_op_entry *t
 #endif
 
 	if (tx_entry->total_len < ep->mtu_size - sizeof(struct rxr_readrsp_hdr)) {
-		err = rxr_pkt_post_req(ep, tx_entry, RXR_SHORT_RTR_PKT, 0, 0);
+		err = rxr_pkt_post_req(ep, tx_entry, RXR_SHORT_RTR_PKT, 0);
 	} else {
 		assert(rxr_env.tx_min_credits > 0);
 		tx_entry->window = MIN(tx_entry->total_len,
 				       rxr_env.tx_min_credits * ep->max_data_payload_size);
-		err = rxr_pkt_post_req(ep, tx_entry, RXR_LONGCTS_RTR_PKT, 0, 0);
+		err = rxr_pkt_post_req(ep, tx_entry, RXR_LONGCTS_RTR_PKT, 0);
 	}
 
 	if (OFI_UNLIKELY(err)) {
@@ -368,7 +368,7 @@ ssize_t rxr_rma_post_write(struct rxr_ep *ep, struct rxr_op_entry *tx_entry)
 	if (tx_entry->total_len >= rxr_ep_domain(ep)->hmem_info[iface].min_read_write_size &&
 		rxr_ep_determine_rdma_read_support(ep, tx_entry->addr, peer) &&
 		(tx_entry->desc[0] || efa_is_cache_available(rxr_ep_domain(ep)))) {
-		err = rxr_pkt_post_req(ep, tx_entry, RXR_LONGREAD_RTW_PKT, 0, 0);
+		err = rxr_pkt_post_req(ep, tx_entry, RXR_LONGREAD_RTW_PKT, 0);
 		if (err != -FI_ENOMEM)
 			return err;
 		/*
@@ -379,11 +379,11 @@ ssize_t rxr_rma_post_write(struct rxr_ep *ep, struct rxr_op_entry *tx_entry)
 
 	if (tx_entry->total_len <= max_eager_rtw_data_size) {
 		ctrl_type = delivery_complete_requested ? RXR_DC_EAGER_RTW_PKT : RXR_EAGER_RTW_PKT;
-		return rxr_pkt_post_req(ep, tx_entry, ctrl_type, 0, 0);
+		return rxr_pkt_post_req(ep, tx_entry, ctrl_type, 0);
 	}
 
 	ctrl_type = delivery_complete_requested ? RXR_DC_LONGCTS_RTW_PKT : RXR_LONGCTS_RTW_PKT;
-	return rxr_pkt_post_req(ep, tx_entry, ctrl_type, 0, 0);
+	return rxr_pkt_post_req(ep, tx_entry, ctrl_type, 0);
 }
 
 ssize_t rxr_rma_writemsg(struct fid_ep *ep,
