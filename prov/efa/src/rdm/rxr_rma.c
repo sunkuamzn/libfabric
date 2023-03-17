@@ -194,6 +194,8 @@ ssize_t rxr_rma_readmsg(struct fid_ep *ep, const struct fi_msg_rma *msg, uint64_
 	struct rxr_ep *rxr_ep;
 	struct efa_rdm_peer *peer;
 	struct rxr_op_entry *tx_entry = NULL;
+	fi_addr_t tmp_addr;
+	struct fi_msg_rma *msg_clone;
 	bool use_lower_ep_read;
 
 	EFA_DBG(FI_LOG_EP_DATA,
@@ -219,6 +221,16 @@ ssize_t rxr_rma_readmsg(struct fid_ep *ep, const struct fi_msg_rma *msg, uint64_
 		err = -FI_EAGAIN;
 		goto out;
 	}
+
+	if (peer->is_local && rxr_ep->use_shm_for_tx) {
+		tmp_addr = msg->addr;
+		msg_clone = (struct fi_msg_rma *)msg;
+		msg_clone->addr = peer->shm_fiaddr;
+		err = fi_readmsg(rxr_ep->shm_ep, msg_clone, flags);
+		msg_clone->addr = tmp_addr;
+		goto out;
+	}
+
 	tx_entry = rxr_rma_alloc_tx_entry(rxr_ep, msg, ofi_op_read_req, flags);
 	if (OFI_UNLIKELY(!tx_entry)) {
 		rxr_ep_progress_internal(rxr_ep);
@@ -227,9 +239,7 @@ ssize_t rxr_rma_readmsg(struct fid_ep *ep, const struct fi_msg_rma *msg, uint64_
 	}
 
 	use_lower_ep_read = false;
-	if (peer->is_local && rxr_ep->use_shm_for_tx) {
-		use_lower_ep_read = true;
-	} else if (efa_both_support_rdma_read(rxr_ep, peer)) {
+	if (efa_both_support_rdma_read(rxr_ep, peer)) {
 		/* efa_both_support_rdma_read also check domain.use_device_rdma,
 		 * so we do not check it here
 		 */
@@ -444,6 +454,8 @@ ssize_t rxr_rma_writemsg(struct fid_ep *ep,
 	struct efa_rdm_peer *peer;
 	struct rxr_ep *rxr_ep;
 	struct rxr_op_entry *tx_entry;
+	fi_addr_t tmp_addr;
+	struct fi_msg_rma *msg_clone;
 
 	EFA_DBG(FI_LOG_EP_DATA,
 	       "write iov_len %lu flags: %lx\n",
@@ -461,6 +473,15 @@ ssize_t rxr_rma_writemsg(struct fid_ep *ep,
 
 	if (peer->flags & EFA_RDM_PEER_IN_BACKOFF) {
 		err = -FI_EAGAIN;
+		goto out;
+	}
+
+	if (peer->is_local && rxr_ep->use_shm_for_tx) {
+		tmp_addr = msg->addr;
+		msg_clone = (struct fi_msg_rma *)msg;
+		msg_clone->addr = peer->shm_fiaddr;
+		err = fi_writemsg(rxr_ep->shm_ep, msg, flags);
+		msg_clone->addr = tmp_addr;
 		goto out;
 	}
 
