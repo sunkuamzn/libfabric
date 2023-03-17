@@ -182,18 +182,11 @@ ssize_t rxr_msg_generic_send(struct fid_ep *ep, const struct fi_msg *msg,
 	ssize_t err, ret, use_p2p;
 	struct rxr_op_entry *tx_entry;
 	struct efa_rdm_peer *peer;
-	struct fi_msg_tagged tmsg = {0};
+	struct fi_msg shm_msg = {0};
+	struct fi_msg_tagged shm_tmsg = {0};
 
 	rxr_ep = container_of(ep, struct rxr_ep, base_ep.util_ep.ep_fid.fid);
 	assert(msg->iov_count <= rxr_ep->tx_iov_limit);
-
-	efa_perfset_start(rxr_ep, perf_efa_tx);
-	ofi_mutex_lock(&rxr_ep->base_ep.util_ep.lock);
-
-	if (OFI_UNLIKELY(is_tx_res_full(rxr_ep))) {
-		err = -FI_EAGAIN;
-		goto out;
-	}
 
 	peer = rxr_ep_get_peer(rxr_ep, msg->addr);
 	assert(peer);
@@ -202,20 +195,30 @@ ssize_t rxr_msg_generic_send(struct fid_ep *ep, const struct fi_msg *msg,
 		/*
 		 * AWS Neuron and SynapseAI are currently not supported by the SHM provider.
 		 */
-		if (efa_mr_is_neuron(msg->desc[0]) || efa_mr_is_synapseai(msg->desc[0])) {
+		if (msg->desc && msg->desc[0] && (efa_mr_is_neuron(msg->desc[0]) || efa_mr_is_synapseai(msg->desc[0]))) {
 			EFA_WARN(FI_LOG_CQ,
 			"Hmem iface: %s is currently not supported by the SHM provider\n",
 			fi_tostr(&((struct efa_mr *)msg->desc[0])->peer.iface, FI_TYPE_HMEM_IFACE));
 			return -FI_EINVAL;
 		}
 		if (op == ofi_op_msg) {
-			return fi_sendmsg(rxr_ep->shm_ep, msg, flags);
+			rxr_msg_construct(&shm_msg, msg->msg_iov, NULL, msg->iov_count, peer->shm_fiaddr,
+				   msg->context, msg->data);
+			return fi_sendmsg(rxr_ep->shm_ep, &shm_msg, flags);
 		} else {
 			assert(op == ofi_op_tagged);
-			rxr_tmsg_construct(&tmsg, msg->msg_iov, msg->desc, msg->iov_count, msg->addr,
+			rxr_tmsg_construct(&shm_tmsg, msg->msg_iov, NULL, msg->iov_count, peer->shm_fiaddr,
 				   msg->context, msg->data, tag);
-			return fi_tsendmsg(rxr_ep->shm_ep, &tmsg, flags);
+			return fi_tsendmsg(rxr_ep->shm_ep, &shm_tmsg, flags);
 		}
+	}
+
+	efa_perfset_start(rxr_ep, perf_efa_tx);
+	ofi_mutex_lock(&rxr_ep->base_ep.util_ep.lock);
+
+	if (OFI_UNLIKELY(is_tx_res_full(rxr_ep))) {
+		err = -FI_EAGAIN;
+		goto out;
 	}
 
 	if (peer->flags & EFA_RDM_PEER_IN_BACKOFF) {
