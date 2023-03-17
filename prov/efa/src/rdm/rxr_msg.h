@@ -47,7 +47,7 @@ void rxr_msg_update_peer_rx_entry(struct fi_peer_rx_entry *peer_rx_entry,
 	assert(op == ofi_op_msg || op == ofi_op_tagged);
 
 	peer_rx_entry->flags = rx_entry->fi_flags;
-	peer_rx_entry->desc = &rx_entry->desc[0];
+	peer_rx_entry->desc = NULL;//&rx_entry->desc[0];
 	peer_rx_entry->iov = rx_entry->iov;
 	peer_rx_entry->count = rx_entry->iov_count;
 	peer_rx_entry->context = rx_entry->cq_entry.op_context;
