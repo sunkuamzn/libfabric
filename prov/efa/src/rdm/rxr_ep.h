@@ -45,11 +45,6 @@ enum ibv_cq_ex_type {
 	EFADV_CQ
 };
 
-enum rxr_lower_ep_type {
-	EFA_EP = 1,
-	SHM_EP,
-};
-
 /** @brief Information of a queued copy.
  *
  * This struct is used when receiving buffer is on device.
@@ -390,10 +385,6 @@ void rxr_ep_record_mediumrtm_rx_entry(struct rxr_ep *ep,
 void rxr_ep_queue_rnr_pkt(struct rxr_ep *ep,
 			  struct dlist_entry *list,
 			  struct rxr_pkt_entry *pkt_entry);
-
-void rxr_ep_handle_misc_shm_completion(struct rxr_ep *ep,
-				       struct fi_cq_data_entry *cq_entry,
-				       fi_addr_t src_addr);
 
 static inline
 struct efa_domain *rxr_ep_domain(struct rxr_ep *ep)
