@@ -573,6 +573,8 @@ int rxr_msg_handle_unexp_match(struct rxr_ep *ep,
 
 	rxr_msg_update_peer_rx_entry(&rx_entry->peer_rx_entry, rx_entry, op);
 
+	rx_entry->peer_rx_entry.owner_context = pkt_entry;
+
 	if (op == ofi_op_msg)
 		return srx->peer_ops->start_msg(&rx_entry->peer_rx_entry);
 	else
