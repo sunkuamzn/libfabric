@@ -280,11 +280,7 @@ ssize_t rxr_pkt_post_one(struct rxr_ep *rxr_ep, struct rxr_op_entry *op_entry,
 	addr = op_entry->addr;
 	peer = rxr_ep_get_peer(rxr_ep, addr);
 	assert(peer);
-	if (peer->is_local && rxr_ep->use_shm_for_tx) {
-		pkt_entry = rxr_pkt_entry_alloc(rxr_ep, rxr_ep->shm_tx_pkt_pool, RXR_PKT_FROM_SHM_TX_POOL);
-	} else {
-		pkt_entry = rxr_pkt_entry_alloc(rxr_ep, rxr_ep->efa_tx_pkt_pool, RXR_PKT_FROM_EFA_TX_POOL);
-	}
+	pkt_entry = rxr_pkt_entry_alloc(rxr_ep, rxr_ep->efa_tx_pkt_pool, RXR_PKT_FROM_EFA_TX_POOL);
 
 	if (!pkt_entry)
 		return -FI_EAGAIN;
