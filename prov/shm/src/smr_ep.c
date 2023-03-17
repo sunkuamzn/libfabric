@@ -1638,7 +1638,6 @@ int smr_srx_context(struct fid_domain *domain, struct fi_rx_attr *attr,
 
 	if (attr->op_flags & FI_PEER) {
 		smr_domain->srx = ((struct fi_peer_srx_context *) (context))->srx;
-		smr_domain->srx->peer_ops = &smr_srx_peer_ops;
 		return FI_SUCCESS;
 	}
 	return smr_ep_srx_context(smr_domain, attr->size, rx_ep);
@@ -1650,6 +1649,7 @@ static int smr_ep_ctrl(struct fid *fid, int command, void *arg)
 	struct smr_domain *domain;
 	struct smr_ep *ep;
 	struct smr_av *av;
+	struct fid_peer_srx *srx;
 	int ret;
 
 	ep = container_of(fid, struct smr_ep, util_ep.ep_fid.fid);
@@ -1696,6 +1696,12 @@ static int smr_ep_ctrl(struct fid *fid, int command, void *arg)
 			if (ret)
 				return ret;
 		} else {
+			srx = calloc(1, sizeof(*srx));
+			srx->peer_ops = &smr_srx_peer_ops;
+			srx->owner_ops = smr_get_peer_srx(ep)->owner_ops;
+			srx->ep_fid.fid.context =
+				smr_get_peer_srx(ep)->ep_fid.fid.context;
+			ep->srx = &srx->ep_fid;
 			ep->util_ep.ep_fid.msg = &smr_no_recv_msg_ops;
 			ep->util_ep.ep_fid.tagged = &smr_no_recv_tag_ops;
 		}
