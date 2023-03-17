@@ -31,6 +31,30 @@
  * SOFTWARE.
  */
 
+/**
+ * @brief Populate the fields in fi_peer_rx_entry object
+ * with the equivalences in rxr_op_entry
+ *
+ * @param[in,out] peer_rx_entry the fi_peer_rx_entry object to be updated
+ * @param[in] rx_entry the rxr_op_entry
+ * @param[in] op the ofi op code
+ */
+static inline
+void rxr_msg_update_peer_rx_entry(struct fi_peer_rx_entry *peer_rx_entry,
+				  struct rxr_op_entry *rx_entry,
+				  uint32_t op)
+{
+	assert(op == ofi_op_msg || op == ofi_op_tagged);
+
+	peer_rx_entry->flags = rx_entry->fi_flags;
+	peer_rx_entry->desc = NULL;//&rx_entry->desc[0];
+	peer_rx_entry->iov = rx_entry->iov;
+	peer_rx_entry->count = rx_entry->iov_count;
+	peer_rx_entry->context = rx_entry->cq_entry.op_context;
+	if (op == ofi_op_tagged)
+		peer_rx_entry->tag = rx_entry->tag;
+}
+
 static inline
 void rxr_msg_construct(struct fi_msg *msg, const struct iovec *iov, void **desc,
 		       size_t count, fi_addr_t addr, void *context, uint64_t data)
@@ -41,6 +65,19 @@ void rxr_msg_construct(struct fi_msg *msg, const struct iovec *iov, void **desc,
 	msg->addr = addr;
 	msg->context = context;
 	msg->data = data;
+}
+
+static inline
+void rxr_tmsg_construct(struct fi_msg_tagged *msg, const struct iovec *iov, void **desc,
+		       size_t count, fi_addr_t addr, void *context, uint64_t data, uint64_t tag)
+{
+	msg->msg_iov = iov;
+	msg->desc = desc;
+	msg->iov_count = count;
+	msg->addr = addr;
+	msg->context = context;
+	msg->data = data;
+	msg->tag = tag;
 }
 
 /**

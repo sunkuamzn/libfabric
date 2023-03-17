@@ -145,8 +145,11 @@ static ssize_t smr_generic_rma(struct smr_ep *ep, const struct iovec *iov,
 		if (err) {
 			FI_WARN(&smr_prov, FI_LOG_EP_CTRL,
 				"error doing fast RMA\n");
+			if (err == -FI_EAGAIN)
+				return err;
+
 			ret = smr_write_err_comp(ep->util_ep.rx_cq, NULL,
-						op_flags, 0, err);
+						op_flags, 0, -err);
 		} else {
 			ret = smr_complete_tx(ep, context, op, op_flags);
 		}

@@ -132,12 +132,27 @@ int smr_setopt(fid_t fid, int level, int optname,
 	struct smr_ep *smr_ep =
 		container_of(fid, struct smr_ep, util_ep.ep_fid);
 
-	if ((level != FI_OPT_ENDPOINT) || (optname != FI_OPT_MIN_MULTI_RECV))
+	if (level != FI_OPT_ENDPOINT)
 		return -FI_ENOPROTOOPT;
 
-	smr_get_smr_srx(smr_ep)->min_multi_recv_size = *(size_t *)optval;
+	if (optname == FI_OPT_MIN_MULTI_RECV) {
+		smr_get_smr_srx(smr_ep)->min_multi_recv_size = *(size_t *)optval;
+		return FI_SUCCESS;
+	}
 
-	return FI_SUCCESS;
+	if (optname == FI_OPT_CUDA_API_PERMITTED) {
+		if (!hmem_ops[FI_HMEM_CUDA].initialized) {
+			FI_WARN(&smr_prov, FI_LOG_CORE,
+				"Cannot set option FI_OPT_CUDA_API_PERMITTED when cuda library "
+				"or cuda device not available\n");
+			return -FI_EINVAL;
+		}
+
+		/* our CUDA support relies on the ability to call CUDA API */
+		return *(bool *)optval ? FI_SUCCESS : -FI_EOPNOTSUPP;
+	}
+
+	return -FI_ENOPROTOOPT;
 }
 
 static int smr_match_recv_ctx(struct dlist_entry *item, const void *args)
@@ -699,7 +714,7 @@ static ssize_t smr_do_iov(struct smr_ep *ep, struct smr_region *peer_smr, int64_
 		return -FI_EAGAIN;
 
 	resp = ofi_cirque_next(smr_resp_queue(ep->region));
-	pend = ofi_freestack_pop(ep->pend_fs);
+	pend = ofi_freestack_pop(ep->tx_fs);
 
 	smr_generic_format(cmd, peer_id, op, tag, data, op_flags);
 	smr_format_iov(cmd, iov, iov_count, total_len, ep->region, resp);
@@ -724,13 +739,13 @@ static ssize_t smr_do_sar(struct smr_ep *ep, struct smr_region *peer_smr, int64_
 		return -FI_EAGAIN;
 
 	resp = ofi_cirque_next(smr_resp_queue(ep->region));
-	pend = ofi_freestack_pop(ep->pend_fs);
+	pend = ofi_freestack_pop(ep->tx_fs);
 
 	smr_generic_format(cmd, peer_id, op, tag, data, op_flags);
 	ret = smr_format_sar(ep, cmd, desc, iov, iov_count, total_len,
 			     ep->region, peer_smr, id, pend, resp);
 	if (ret) {
-		ofi_freestack_push(ep->pend_fs, pend);
+		ofi_freestack_push(ep->tx_fs, pend);
 		return ret;
 	}
 
@@ -755,7 +770,7 @@ static ssize_t smr_do_ipc(struct smr_ep *ep, struct smr_region *peer_smr, int64_
 		return -FI_EAGAIN;
 
 	resp = ofi_cirque_next(smr_resp_queue(ep->region));
-	pend = ofi_freestack_pop(ep->pend_fs);
+	pend = ofi_freestack_pop(ep->tx_fs);
 
 	smr_generic_format(cmd, peer_id, op, tag, data, op_flags);
 	assert(iov_count == 1 && desc && desc[0]);
@@ -772,7 +787,7 @@ static ssize_t smr_do_ipc(struct smr_ep *ep, struct smr_region *peer_smr, int64_
 	if (ret) {
 		FI_WARN_ONCE(&smr_prov, FI_LOG_EP_CTRL,
 			     "unable to use IPC for msg, fallback to using SAR\n");
-		ofi_freestack_push(ep->pend_fs, pend);
+		ofi_freestack_push(ep->tx_fs, pend);
 		return smr_do_sar(ep, peer_smr, id, peer_id, op, tag, data,
 				  op_flags, desc, iov, iov_count,
 				  total_len, context, cmd);
@@ -799,12 +814,12 @@ static ssize_t smr_do_mmap(struct smr_ep *ep, struct smr_region *peer_smr, int64
 		return -FI_EAGAIN;
 
 	resp = ofi_cirque_next(smr_resp_queue(ep->region));
-	pend = ofi_freestack_pop(ep->pend_fs);
+	pend = ofi_freestack_pop(ep->tx_fs);
 
 	smr_generic_format(cmd, peer_id, op, tag, data, op_flags);
 	ret = smr_format_mmap(ep, cmd, iov, iov_count, total_len, pend, resp);
 	if (ret) {
-		ofi_freestack_push(ep->pend_fs, pend);
+		ofi_freestack_push(ep->tx_fs, pend);
 		return ret;
 	}
 
@@ -869,22 +884,10 @@ static void smr_close_recv_queue(struct smr_srx_ctx *srx,
 	}
 }
 
-static void smr_close_unexp_queue(struct smr_srx_ctx *srx,
-				 struct smr_queue *unexp_queue)
-{
-	struct smr_rx_entry *rx_entry;
-
-	while (!dlist_empty(&unexp_queue->list)) {
-		dlist_pop_front(&unexp_queue->list, struct smr_rx_entry,
-				rx_entry, peer_entry);
-		rx_entry->peer_entry.srx->peer_ops->discard_msg(
-							&rx_entry->peer_entry);
-	}
-}
-
 static int smr_srx_close(struct fid *fid)
 {
 	struct smr_srx_ctx *srx;
+	struct smr_rx_entry *rx_entry;
 
 	srx = container_of(fid, struct smr_srx_ctx, peer_srx.ep_fid.fid);
 	if (!srx)
@@ -893,8 +896,19 @@ static int smr_srx_close(struct fid *fid)
 	smr_close_recv_queue(srx, &srx->recv_queue);
 	smr_close_recv_queue(srx, &srx->trecv_queue);
 
-	smr_close_unexp_queue(srx, &srx->unexp_msg_queue);
-	smr_close_unexp_queue(srx, &srx->unexp_tagged_queue);
+	while (!dlist_empty(&srx->unexp_msg_queue.list)) {
+		dlist_pop_front(&srx->unexp_msg_queue.list, struct smr_rx_entry,
+				rx_entry, peer_entry);
+		rx_entry->peer_entry.srx->peer_ops->discard_msg(
+							&rx_entry->peer_entry);
+	}
+
+	while (!dlist_empty(&srx->unexp_tagged_queue.list)) {
+		dlist_pop_front(&srx->unexp_tagged_queue.list,
+				struct smr_rx_entry, rx_entry, peer_entry);
+		rx_entry->peer_entry.srx->peer_ops->discard_tag(
+							&rx_entry->peer_entry);
+	}
 
 	ofi_atomic_dec32(&srx->cq->ref);
 	smr_recv_fs_free(srx->recv_fs);
@@ -931,8 +945,8 @@ static int smr_ep_close(struct fid *fid)
 		smr_srx_close(&ep->srx->fid);
 
 	smr_cmd_ctx_fs_free(ep->cmd_ctx_fs);
+	smr_tx_fs_free(ep->tx_fs);
 	smr_pend_fs_free(ep->pend_fs);
-	smr_sar_fs_free(ep->sar_fs);
 	ofi_spin_destroy(&ep->tx_lock);
 
 	free((void *)ep->name);
@@ -1624,7 +1638,6 @@ int smr_srx_context(struct fid_domain *domain, struct fi_rx_attr *attr,
 
 	if (attr->op_flags & FI_PEER) {
 		smr_domain->srx = ((struct fi_peer_srx_context *) (context))->srx;
-		smr_domain->srx->peer_ops = &smr_srx_peer_ops;
 		return FI_SUCCESS;
 	}
 	return smr_ep_srx_context(smr_domain, attr->size, rx_ep);
@@ -1636,6 +1649,7 @@ static int smr_ep_ctrl(struct fid *fid, int command, void *arg)
 	struct smr_domain *domain;
 	struct smr_ep *ep;
 	struct smr_av *av;
+	struct fid_peer_srx *srx;
 	int ret;
 
 	ep = container_of(fid, struct smr_ep, util_ep.ep_fid.fid);
@@ -1682,6 +1696,12 @@ static int smr_ep_ctrl(struct fid *fid, int command, void *arg)
 			if (ret)
 				return ret;
 		} else {
+			srx = calloc(1, sizeof(*srx));
+			srx->peer_ops = &smr_srx_peer_ops;
+			srx->owner_ops = smr_get_peer_srx(ep)->owner_ops;
+			srx->ep_fid.fid.context =
+				smr_get_peer_srx(ep)->ep_fid.fid.context;
+			ep->srx = &srx->ep_fid;
 			ep->util_ep.ep_fid.msg = &smr_no_recv_msg_ops;
 			ep->util_ep.ep_fid.tagged = &smr_no_recv_tag_ops;
 		}
@@ -1781,10 +1801,11 @@ int smr_endpoint(struct fid_domain *domain, struct fi_info *info,
 	ep->util_ep.ep_fid.tagged = &smr_tag_ops;
 
 	ep->cmd_ctx_fs = smr_cmd_ctx_fs_create(info->rx_attr->size, NULL, NULL);
-	ep->pend_fs = smr_pend_fs_create(info->tx_attr->size, NULL, NULL);
-	ep->sar_fs = smr_sar_fs_create(info->rx_attr->size, NULL, NULL);
+	ep->tx_fs = smr_tx_fs_create(info->tx_attr->size, NULL, NULL);
+	ep->pend_fs = smr_pend_fs_create(info->rx_attr->size, NULL, NULL);
 
 	dlist_init(&ep->sar_list);
+	dlist_init(&ep->ipc_cpy_pend_list);
 
 	ep->util_ep.ep_fid.fid.ops = &smr_ep_fi_ops;
 	ep->util_ep.ep_fid.ops = &smr_ep_ops;

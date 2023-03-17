@@ -74,7 +74,7 @@ void efa_rdm_srx_construct_pkt_entry(struct rxr_ep *ep,
 	rtm_hdr = (struct rxr_longread_rtm_base_hdr *)pkt_entry->wiredata;
 	rtm_hdr->hdr.type = pkt_type;
 	rtm_hdr->hdr.version = RXR_PROTOCOL_VERSION;
-	rtm_hdr->hdr.flags |= RXR_REQ_MSG;
+	rtm_hdr->hdr.flags = RXR_REQ_MSG;
 	rtm_hdr->msg_length = size;
 
 	if (op == ofi_op_tagged) {
@@ -82,7 +82,7 @@ void efa_rdm_srx_construct_pkt_entry(struct rxr_ep *ep,
 		rxr_pkt_rtm_settag(pkt_entry, tag);
 	}
 
-	pkt_entry->pkt_size = rxr_pkt_req_hdr_size_from_pkt_entry(pkt_entry);
+	pkt_entry->pkt_size = rxr_pkt_req_hdr_size(pkt_type, 0, 0);
 	pkt_entry->addr = addr;
 	pkt_entry->alloc_type = RXR_PKT_FROM_PEER_SRX;
 	pkt_entry->flags = RXR_PKT_ENTRY_IN_USE;
