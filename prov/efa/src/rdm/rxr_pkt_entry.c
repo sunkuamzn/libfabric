@@ -630,28 +630,6 @@ ssize_t rxr_pkt_entry_recv(struct rxr_ep *ep, struct rxr_pkt_entry *pkt_entry,
 	return err;
 }
 
-ssize_t rxr_pkt_entry_inject(struct rxr_ep *ep,
-			     struct rxr_pkt_entry *pkt_entry,
-			     fi_addr_t addr)
-{
-	struct efa_rdm_peer *peer;
-	ssize_t ret;
-
-	/* currently only EOR packet is injected using shm ep */
-	peer = rxr_ep_get_peer(ep, addr);
-	assert(peer);
-
-	assert(ep->use_shm_for_tx && peer->is_local);
-	ret = fi_inject(ep->shm_ep, rxr_pkt_start(pkt_entry), pkt_entry->pkt_size,
-			 peer->shm_fiaddr);
-
-	if (OFI_UNLIKELY(ret))
-		return ret;
-
-	rxr_ep_record_tx_op_submitted(ep, pkt_entry);
-	return 0;
-}
-
 /*
  * Functions for pkt_rx_map
  */

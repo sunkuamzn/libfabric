@@ -1935,8 +1935,7 @@ void rxr_ep_progress_internal(struct rxr_ep *ep)
 			continue;
 
 		assert(op_entry->rxr_flags & RXR_OP_ENTRY_QUEUED_CTRL);
-		ret = rxr_pkt_post(ep, op_entry, op_entry->queued_ctrl.type,
-				   op_entry->queued_ctrl.inject, 0);
+		ret = rxr_pkt_post(ep, op_entry, op_entry->queued_ctrl_type, 0);
 		if (ret == -FI_EAGAIN)
 			break;
 
@@ -2005,7 +2004,7 @@ void rxr_ep_progress_internal(struct rxr_ep *ep)
 
 			if (peer->flags & EFA_RDM_PEER_IN_BACKOFF)
 				break;
-			ret = rxr_pkt_post(ep, op_entry, RXR_DATA_PKT, false, flags);
+			ret = rxr_pkt_post(ep, op_entry, RXR_DATA_PKT, flags);
 			if (OFI_UNLIKELY(ret)) {
 				if (ret == -FI_EAGAIN)
 					goto out;

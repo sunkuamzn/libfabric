@@ -1006,8 +1006,6 @@ void rxr_op_entry_handle_recv_completed(struct rxr_op_entry *op_entry)
 {
 	struct rxr_op_entry *tx_entry = NULL;
 	struct rxr_op_entry *rx_entry = NULL;
-	struct efa_rdm_peer *peer;
-	bool inject;
 	int err;
 
 	/* It is important to write completion before sending ctrl packet, because the
@@ -1071,19 +1069,11 @@ void rxr_op_entry_handle_recv_completed(struct rxr_op_entry *op_entry)
 	 *
 	 * Hence, the rx_entry can be safely released only when we got
 	 * the send completion of the ctrl packet.
-	 *
-	 * Another interesting point is that when inject was used, the
-	 * rx_entry was released by rxr_pkt_post_or_queue(), because
-	 * when inject was used, lower device will not provider send
-	 * completion for the ctrl packet.
 	 */
 	if (op_entry->rxr_flags & RXR_TX_ENTRY_DELIVERY_COMPLETE_REQUESTED) {
 		assert(op_entry->type == RXR_RX_ENTRY);
 		rx_entry = op_entry; /* Intentionally assigned for easier understanding */
-		peer = rxr_ep_get_peer(rx_entry->ep, rx_entry->addr);
-		assert(peer);
-		inject = peer->is_local && rx_entry->ep->use_shm_for_tx;
-		err = rxr_pkt_post_or_queue(rx_entry->ep, rx_entry, RXR_RECEIPT_PKT, inject);
+		err = rxr_pkt_post_or_queue(rx_entry->ep, rx_entry, RXR_RECEIPT_PKT);
 		if (OFI_UNLIKELY(err)) {
 			EFA_WARN(FI_LOG_CQ,
 				 "Posting of ctrl packet failed when complete rx! err=%s(%d)\n",
