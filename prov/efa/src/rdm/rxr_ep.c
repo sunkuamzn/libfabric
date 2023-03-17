@@ -782,12 +782,13 @@ void rxr_ep_set_use_shm_for_tx(struct rxr_ep *ep)
 
 	/* App provided hints supercede environmental variables.
 	 *
-	 * Using the shm provider comes with some overheads, particularly in the
-	 * progress engine when polling an empty completion queue, so avoid
+	 * Using the shm provider comes with some overheads, so avoid
 	 * initializing the provider if the app provides a hint that it does not
 	 * require node-local communication. We can still loopback over the EFA
 	 * device in cases where the app violates the hint and continues
 	 * communicating with node-local peers.
+	 *
+	 * aws-ofi-nccl relies on this feature.
 	 */
 	if (ep->user_info
 	    /* If the app requires explicitly remote communication */
@@ -2067,9 +2068,7 @@ void rxr_ep_progress_internal(struct rxr_ep *ep)
 		 * The core's TX queue is full so we can't do any
 		 * additional work.
 		 */
-		bool use_shm = peer->is_local && ep->use_shm_for_tx;
-
-		if (!use_shm && ep->efa_outstanding_tx_ops == ep->efa_max_outstanding_tx_ops)
+		if (ep->efa_outstanding_tx_ops == ep->efa_max_outstanding_tx_ops)
 			goto out;
 
 		ret = rxr_op_entry_post_remote_read(op_entry);
