@@ -316,10 +316,6 @@ void rxr_ep_queue_rnr_pkt(struct rxr_ep *ep,
 			  struct dlist_entry *list,
 			  struct rxr_pkt_entry *pkt_entry);
 
-void rxr_ep_handle_misc_shm_completion(struct rxr_ep *ep,
-				       struct fi_cq_data_entry *cq_entry,
-				       fi_addr_t src_addr);
-
 static inline
 struct efa_domain *rxr_ep_domain(struct rxr_ep *ep)
 {

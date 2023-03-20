@@ -2407,67 +2407,6 @@ void rxr_ep_record_tx_op_completed(struct rxr_ep *ep, struct rxr_pkt_entry *pkt_
 }
 
 /**
- * @brief handle two types of completion entries from shm provider
- *
- * This function handles the following two scenarios:
- *  1. RMA writes with immediate data at remote endpoint,
- *  2. atomic completion on the requester
- * For both cases, this function report completion to user.
- *
- * @param[in]		ep		endpoint
- * @param[in]		cq_entry	CQ entry from shm provider
- * @param[in]		src_addr	source address
- */
-void rxr_ep_handle_misc_shm_completion(struct rxr_ep *ep,
-				       struct fi_cq_data_entry *cq_entry,
-				       fi_addr_t src_addr)
-{
-	struct util_cq *target_cq;
-	int ret;
-
-	if (cq_entry->flags & FI_ATOMIC) {
-		target_cq = ep->base_ep.util_ep.tx_cq;
-	} else {
-		assert(cq_entry->flags & FI_REMOTE_CQ_DATA);
-		target_cq = ep->base_ep.util_ep.rx_cq;
-	}
-
-	if (ep->base_ep.util_ep.caps & FI_SOURCE)
-		ret = ofi_cq_write_src(target_cq,
-				       cq_entry->op_context,
-				       cq_entry->flags,
-				       cq_entry->len,
-				       cq_entry->buf,
-				       cq_entry->data,
-				       0,
-				       src_addr);
-	else
-		ret = ofi_cq_write(target_cq,
-				   cq_entry->op_context,
-				   cq_entry->flags,
-				   cq_entry->len,
-				   cq_entry->buf,
-				   cq_entry->data,
-				   0);
-
-	rxr_rm_rx_cq_check(ep, target_cq);
-
-	if (OFI_UNLIKELY(ret)) {
-		EFA_WARN(FI_LOG_CQ,
-			"Unable to write a cq entry for shm operation: %s\n",
-			fi_strerror(-ret));
-		efa_eq_write_error(&ep->base_ep.util_ep, FI_EIO, FI_EFA_ERR_WRITE_SHM_CQ_ENTRY);
-	}
-
-	if (cq_entry->flags & FI_ATOMIC) {
-		efa_cntr_report_tx_completion(&ep->base_ep.util_ep, cq_entry->flags);
-	} else {
-		assert(cq_entry->flags & FI_REMOTE_CQ_DATA);
-		efa_cntr_report_rx_completion(&ep->base_ep.util_ep, cq_entry->flags);
-	}
-}
-
-/**
  * @brief handle RX completion due to FI_REMOTE_CQ_DATA via RECV_RDMA_WITH_IMM
  *
  * This function handles hardware-assisted RDMA writes with immediate data at
