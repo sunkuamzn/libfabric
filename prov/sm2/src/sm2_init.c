@@ -33,17 +33,17 @@
 
 #include <rdma/fi_errno.h>
 
-#include <ofi_prov.h>
 #include "sm2.h"
 #include "sm2_signal.h"
 #include <ofi_hmem.h>
+#include <ofi_prov.h>
 
 struct sigaction *sm2_old_action = NULL;
 
 struct sm2_env sm2_env = {
-	.sar_threshold = SIZE_MAX,
-	.disable_cma = false,
-	.use_dsa_sar = false,
+    .sar_threshold = SIZE_MAX,
+    .disable_cma = false,
+    .use_dsa_sar = false,
 };
 
 static void sm2_init_env(void)
@@ -61,27 +61,29 @@ static void sm2_init_env(void)
  * @param[in] node		NULL or a node name
  * @param[in] service		NULL or service name
  * @param[out] addr		the string of the address we should use
-*/
-static void sm2_resolve_addr(const char *node, const char *service,
-			     char **addr, size_t *addrlen)
+ */
+static void sm2_resolve_addr(const char *node, const char *service, char **addr,
+			     size_t *addrlen)
 {
 	char temp_name[SM2_NAME_MAX];
 
-	FI_WARN(&sm2_prov, FI_LOG_EP_CTRL, "resolving node=%s, service=%s\n", node?node:"NULL", service?service:"NULL");
+	FI_WARN(&sm2_prov, FI_LOG_EP_CTRL, "resolving node=%s, service=%s\n",
+		node ? node : "NULL", service ? service : "NULL");
 	if (service) {
 		if (node)
 			*addrlen = snprintf(temp_name, SM2_NAME_MAX - 1, "%s%s:%s",
-				 SM2_PREFIX_NS, node, service);
+					    SM2_PREFIX_NS, node, service);
 		else
 			*addrlen = snprintf(temp_name, SM2_NAME_MAX - 1, "%s%s",
-				 SM2_PREFIX_NS, service);
-	} else {
+					    SM2_PREFIX_NS, service);
+	}
+	else {
 		if (node)
 			*addrlen = snprintf(temp_name, SM2_NAME_MAX - 1, "%s%s",
-				 SM2_PREFIX, node);
+					    SM2_PREFIX, node);
 		else
 			*addrlen = snprintf(temp_name, SM2_NAME_MAX - 1, "%s%d",
-				 SM2_PREFIX, getpid());
+					    SM2_PREFIX, getpid());
 	}
 	*addr = strndup(temp_name, SM2_NAME_MAX - 1);
 	FI_WARN(&sm2_prov, FI_LOG_EP_CTRL, "resolved to %s\n", temp_name);
@@ -96,9 +98,9 @@ static void sm2_resolve_addr(const char *node, const char *service,
  */
 static int sm2_shm_space_check(size_t tx_count, size_t rx_count)
 {
-// TODO: call this routine AFTER we have mmap, but BEFORE we allocate our space.
-// TODO: base the return value on the contents of the header region size.
-// TODO: And ignore existing file allocation size when stat() /dev/shm/
+	// TODO: call this routine AFTER we have mmap, but BEFORE we allocate our space.
+	// TODO: base the return value on the contents of the header region size.
+	// TODO: And ignore existing file allocation size when stat() /dev/shm/
 	struct statvfs stat;
 	char shm_fs[] = "/dev/shm";
 	uint64_t available_size, shm_size_needed;
@@ -107,20 +109,18 @@ static int sm2_shm_space_check(size_t tx_count, size_t rx_count)
 
 	num_of_core = ofi_sysconf(_SC_NPROCESSORS_ONLN);
 	if (num_of_core < 0) {
-		FI_WARN(&sm2_prov, FI_LOG_CORE,
-			"Get number of processor failed (%s)\n",
+		FI_WARN(&sm2_prov, FI_LOG_CORE, "Get number of processor failed (%s)\n",
 			strerror(errno));
 		return -errno;
 	}
-	shm_size_needed = num_of_core *
-			  sm2_calculate_size_offsets(num_fqe,
-						     NULL, NULL);
+	shm_size_needed = num_of_core * sm2_calculate_size_offsets(num_fqe, NULL, NULL);
 	err = statvfs(shm_fs, &stat);
 	if (err) {
 		FI_WARN(&sm2_prov, FI_LOG_CORE,
-			"Get filesystem %s statistics failed (%s)\n",
-			shm_fs, strerror(errno));
-	} else {
+			"Get filesystem %s statistics failed (%s)\n", shm_fs,
+			strerror(errno));
+	}
+	else {
 		available_size = stat.f_bsize * stat.f_bavail;
 		if (available_size < shm_size_needed) {
 			FI_WARN(&sm2_prov, FI_LOG_CORE,
@@ -133,14 +133,12 @@ static int sm2_shm_space_check(size_t tx_count, size_t rx_count)
 }
 
 static int sm2_getinfo(uint32_t version, const char *node, const char *service,
-		       uint64_t flags, const struct fi_info *hints,
-		       struct fi_info **info)
+		       uint64_t flags, const struct fi_info *hints, struct fi_info **info)
 {
 	struct fi_info *cur;
 	int ret;
 
-	ret = util_getinfo(&sm2_util_prov, version, node, service, flags,
-			   hints, info);
+	ret = util_getinfo(&sm2_util_prov, version, node, service, flags, hints, info);
 	if (ret)
 		return ret;
 
@@ -152,15 +150,15 @@ static int sm2_getinfo(uint32_t version, const char *node, const char *service,
 
 	for (cur = *info; cur; cur = cur->next) {
 		if (!(flags & FI_SOURCE) && !cur->dest_addr)
-			sm2_resolve_addr(node, service, (char **) &cur->dest_addr,
+			sm2_resolve_addr(node, service, (char **)&cur->dest_addr,
 					 &cur->dest_addrlen);
 
 		if (!cur->src_addr) {
 			if (flags & FI_SOURCE)
-				sm2_resolve_addr(node, service, (char **) &cur->src_addr,
+				sm2_resolve_addr(node, service, (char **)&cur->src_addr,
 						 &cur->src_addrlen);
 			else
-				sm2_resolve_addr(NULL, NULL, (char **) &cur->src_addr,
+				sm2_resolve_addr(NULL, NULL, (char **)&cur->src_addr,
 						 &cur->src_addrlen);
 		}
 	}
@@ -176,20 +174,14 @@ static void sm2_fini(void)
 	free(sm2_old_action);
 }
 
-struct fi_provider sm2_prov = {
-	.name = "sm2",
-	.version = OFI_VERSION_DEF_PROV,
-	.fi_version = OFI_VERSION_LATEST,
-	.getinfo = sm2_getinfo,
-	.fabric = sm2_fabric,
-	.cleanup = sm2_fini
-};
+struct fi_provider sm2_prov = {.name = "sm2",
+			       .version = OFI_VERSION_DEF_PROV,
+			       .fi_version = OFI_VERSION_LATEST,
+			       .getinfo = sm2_getinfo,
+			       .fabric = sm2_fabric,
+			       .cleanup = sm2_fini};
 
-struct util_prov sm2_util_prov = {
-	.prov = &sm2_prov,
-	.info = &sm2_info,
-	.flags = 0
-};
+struct util_prov sm2_util_prov = {.prov = &sm2_prov, .info = &sm2_info, .flags = 0};
 
 SM2_INI
 {

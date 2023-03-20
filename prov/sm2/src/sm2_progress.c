@@ -35,33 +35,29 @@
 #include <string.h>
 #include <sys/uio.h>
 
-#include "ofi_iov.h"
-#include "ofi_hmem.h"
 #include "ofi_atom.h"
+#include "ofi_hmem.h"
+#include "ofi_iov.h"
 #include "ofi_mr.h"
 #include "sm2.h"
 #include "sm2_fifo.h"
 
 static int sm2_progress_inject(struct sm2_free_queue_entry *fqe, enum fi_hmem_iface iface,
-			       uint64_t device, struct iovec *iov,
-			       size_t iov_count, size_t *total_len,
-			       struct sm2_ep *ep, int err)
+			       uint64_t device, struct iovec *iov, size_t iov_count,
+			       size_t *total_len, struct sm2_ep *ep, int err)
 {
 	ssize_t hmem_copy_ret;
 
-
-	hmem_copy_ret = ofi_copy_to_hmem_iov(iface, device, iov,
-						     iov_count, 0, fqe->data,
-						     fqe->protocol_hdr.size);
+	hmem_copy_ret = ofi_copy_to_hmem_iov(iface, device, iov, iov_count, 0, fqe->data,
+					     fqe->protocol_hdr.size);
 
 	if (hmem_copy_ret < 0) {
-		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL,
-			"inject recv failed with code %d\n",
+		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL, "inject recv failed with code %d\n",
 			(int)(-hmem_copy_ret));
 		return hmem_copy_ret;
-	} else if (hmem_copy_ret != fqe->protocol_hdr.size) {
-		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL,
-			"inject recv truncated\n");
+	}
+	else if (hmem_copy_ret != fqe->protocol_hdr.size) {
+		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL, "inject recv truncated\n");
 		return -FI_ETRUNC;
 	}
 
@@ -71,7 +67,7 @@ static int sm2_progress_inject(struct sm2_free_queue_entry *fqe, enum fi_hmem_if
 }
 
 static int sm2_start_common(struct sm2_ep *ep, struct sm2_free_queue_entry *fqe,
-		struct fi_peer_rx_entry *rx_entry, bool return_fqe)
+			    struct fi_peer_rx_entry *rx_entry, bool return_fqe)
 {
 	size_t total_len = 0;
 	uint64_t comp_flags;
@@ -81,13 +77,11 @@ static int sm2_start_common(struct sm2_ep *ep, struct sm2_free_queue_entry *fqe,
 
 	switch (fqe->protocol_hdr.op_src) {
 	case sm2_src_inject:
-		err = sm2_progress_inject(fqe, 0, 0,
-					  rx_entry->iov, rx_entry->count,
+		err = sm2_progress_inject(fqe, 0, 0, rx_entry->iov, rx_entry->count,
 					  &total_len, ep, 0);
 		break;
 	default:
-		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL,
-			"unidentified operation type\n");
+		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL, "unidentified operation type\n");
 		err = -FI_EINVAL;
 	}
 
@@ -96,28 +90,25 @@ static int sm2_start_common(struct sm2_ep *ep, struct sm2_free_queue_entry *fqe,
 				     fqe->protocol_hdr.op_flags);
 
 	if (err) {
-		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL,
-			"error processing op\n");
-		ret = sm2_write_err_comp(ep->util_ep.rx_cq,
-					 rx_entry->context,
-					 comp_flags, rx_entry->tag,
-					 err);
-	} else {
-		ret = sm2_complete_rx(ep, rx_entry->context, fqe->protocol_hdr.op,
-				      comp_flags, total_len, comp_buf,
-				      fqe->protocol_hdr.id, fqe->protocol_hdr.tag,
-				      fqe->protocol_hdr.data);
+		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL, "error processing op\n");
+		ret = sm2_write_err_comp(ep->util_ep.rx_cq, rx_entry->context, comp_flags,
+					 rx_entry->tag, err);
+	}
+	else {
+		ret =
+		    sm2_complete_rx(ep, rx_entry->context, fqe->protocol_hdr.op,
+				    comp_flags, total_len, comp_buf, fqe->protocol_hdr.id,
+				    fqe->protocol_hdr.tag, fqe->protocol_hdr.data);
 	}
 	if (ret) {
-		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL,
-			"unable to process rx completion\n");
-	} else if (return_fqe) {
+		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL, "unable to process rx completion\n");
+	}
+	else if (return_fqe) {
 		/* Return Free Queue Entries here */
 		sm2_fifo_write_back(ep, fqe);
 	}
 
 	sm2_get_peer_srx(ep)->owner_ops->free_entry(rx_entry);
-
 
 	return 0;
 }
@@ -133,8 +124,8 @@ int sm2_unexp_start(struct fi_peer_rx_entry *rx_entry)
 	return ret;
 }
 
-static int sm2_alloc_fqe_ctx(struct sm2_ep *ep,
-		struct fi_peer_rx_entry *rx_entry, struct sm2_free_queue_entry *fqe)
+static int sm2_alloc_fqe_ctx(struct sm2_ep *ep, struct fi_peer_rx_entry *rx_entry,
+			     struct sm2_free_queue_entry *fqe)
 {
 	struct sm2_fqe_ctx *fqe_ctx;
 
@@ -160,8 +151,8 @@ static int sm2_progress_recv_msg(struct sm2_ep *ep, struct sm2_free_queue_entry 
 	addr = fqe->protocol_hdr.id;
 
 	if (fqe->protocol_hdr.op == ofi_op_tagged) {
-		ret = peer_srx->owner_ops->get_tag(peer_srx, addr,
-				fqe->protocol_hdr.tag, &rx_entry);
+		ret = peer_srx->owner_ops->get_tag(peer_srx, addr, fqe->protocol_hdr.tag,
+						   &rx_entry);
 		if (ret == -FI_ENOENT) {
 			ret = sm2_alloc_fqe_ctx(ep, rx_entry, fqe);
 			sm2_fifo_write_back(ep, fqe);
@@ -171,9 +162,10 @@ static int sm2_progress_recv_msg(struct sm2_ep *ep, struct sm2_free_queue_entry 
 			ret = peer_srx->owner_ops->queue_tag(rx_entry);
 			goto out;
 		}
-	} else {
-		ret = peer_srx->owner_ops->get_msg(peer_srx, addr,
-				fqe->protocol_hdr.size, &rx_entry);
+	}
+	else {
+		ret = peer_srx->owner_ops->get_msg(peer_srx, addr, fqe->protocol_hdr.size,
+						   &rx_entry);
 		if (ret == -FI_ENOENT) {
 			ret = sm2_alloc_fqe_ctx(ep, rx_entry, fqe);
 			sm2_fifo_write_back(ep, fqe);
@@ -200,9 +192,10 @@ void sm2_progress_recv(struct sm2_ep *ep)
 	struct sm2_free_queue_entry *fqe;
 	int ret = 0;
 
-	while ( NULL != (fqe = sm2_fifo_read(ep)) ) {
-		if (fqe->protocol_hdr.op_src == sm2_buffer_return ) {
-			smr_freestack_push(sm2_free_stack(sm2_smr_region(ep,ep->self_fiaddr)), fqe);
+	while (NULL != (fqe = sm2_fifo_read(ep))) {
+		if (fqe->protocol_hdr.op_src == sm2_buffer_return) {
+			smr_freestack_push(
+			    sm2_free_stack(sm2_smr_region(ep, ep->self_fiaddr)), fqe);
 			continue;
 		}
 		switch (fqe->protocol_hdr.op) {

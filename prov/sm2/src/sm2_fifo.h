@@ -66,14 +66,12 @@
 #ifndef _SM2_FIFO_H_
 #define _SM2_FIFO_H_
 
-#include <stdint.h>
-#include "sm2_common.h"
 #include "sm2.h"
 #include "sm2_atomic.h"
-
+#include "sm2_common.h"
+#include <stdint.h>
 
 #define SM2_FIFO_FREE (-3)
-
 
 struct sm2_fifo {
 	long int head;
@@ -89,7 +87,7 @@ static inline void sm2_fifo_init(struct sm2_fifo *fifo)
 
 /* Write, Enqueue */
 static inline void sm2_fifo_write(struct sm2_ep *ep, int peer_id,
-        struct sm2_free_queue_entry *fqe)
+				  struct sm2_free_queue_entry *fqe)
 {
 	struct sm2_mmap *map = ep->mmap_regions;
 	struct sm2_region *peer_region = sm2_smr_region(ep, peer_id);
@@ -119,7 +117,8 @@ static inline void sm2_fifo_write(struct sm2_ep *ep, int peer_id,
 
 		prev_fqe = sm2_relptr_to_absptr(prev, map);
 		prev_fqe->protocol_hdr.next = offset;
-	} else {
+	}
+	else {
 		peer_fifo->head = offset;
 	}
 
@@ -127,12 +126,12 @@ static inline void sm2_fifo_write(struct sm2_ep *ep, int peer_id,
 }
 
 /* Read, Dequeue */
-static inline struct sm2_free_queue_entry* sm2_fifo_read(struct sm2_ep *ep)
+static inline struct sm2_free_queue_entry *sm2_fifo_read(struct sm2_ep *ep)
 {
 	struct sm2_mmap *map = ep->mmap_regions;
 	struct sm2_region *self_region = sm2_smr_region(ep, ep->self_fiaddr);
 	struct sm2_fifo *self_fifo = sm2_recv_queue(self_region);
-	struct sm2_free_queue_entry* fqe;
+	struct sm2_free_queue_entry *fqe;
 	long int prev_head;
 
 	assert(self_fifo->head != 0);
@@ -154,7 +153,7 @@ static inline struct sm2_free_queue_entry* sm2_fifo_read(struct sm2_ep *ep)
 		atomic_mb();
 	}
 
-	fqe = (struct sm2_free_queue_entry*)sm2_relptr_to_absptr(prev_head, map);
+	fqe = (struct sm2_free_queue_entry *)sm2_relptr_to_absptr(prev_head, map);
 	self_fifo->head = SM2_FIFO_FREE;
 
 	assert(fqe->protocol_hdr.next != prev_head);
@@ -163,13 +162,15 @@ static inline struct sm2_free_queue_entry* sm2_fifo_read(struct sm2_ep *ep)
 
 	if (OFI_UNLIKELY(SM2_FIFO_FREE == fqe->protocol_hdr.next)) {
 		atomic_rmb();
-		if (!atomic_compare_exchange(&self_fifo->tail, &prev_head, SM2_FIFO_FREE)) {
+		if (!atomic_compare_exchange(&self_fifo->tail, &prev_head,
+					     SM2_FIFO_FREE)) {
 			while (SM2_FIFO_FREE == fqe->protocol_hdr.next) {
 				atomic_rmb();
 			}
 			self_fifo->head = fqe->protocol_hdr.next;
 		}
-	} else {
+	}
+	else {
 		self_fifo->head = fqe->protocol_hdr.next;
 	}
 
@@ -178,7 +179,7 @@ static inline struct sm2_free_queue_entry* sm2_fifo_read(struct sm2_ep *ep)
 }
 
 static inline void sm2_fifo_write_back(struct sm2_ep *ep,
-		struct sm2_free_queue_entry *fqe)
+				       struct sm2_free_queue_entry *fqe)
 {
 	fqe->protocol_hdr.op_src = sm2_buffer_return;
 	assert(fqe->protocol_hdr.id != ep->self_fiaddr);

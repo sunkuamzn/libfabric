@@ -37,17 +37,17 @@
 #include "sm2.h"
 
 static struct fi_ops_domain sm2_domain_ops = {
-	.size = sizeof(struct fi_ops_domain),
-	.av_open = sm2_av_open,
-	.cq_open = sm2_cq_open,
-	.endpoint = sm2_endpoint,
-	.scalable_ep = fi_no_scalable_ep,
-	.cntr_open = sm2_cntr_open,
-	.poll_open = fi_poll_create,
-	.stx_ctx = fi_no_stx_context,
-	.srx_ctx = sm2_srx_context,
-	.query_atomic = NULL,
-	.query_collective = fi_no_query_collective,
+    .size = sizeof(struct fi_ops_domain),
+    .av_open = sm2_av_open,
+    .cq_open = sm2_cq_open,
+    .endpoint = sm2_endpoint,
+    .scalable_ep = fi_no_scalable_ep,
+    .cntr_open = sm2_cntr_open,
+    .poll_open = fi_poll_create,
+    .stx_ctx = fi_no_stx_context,
+    .srx_ctx = sm2_srx_context,
+    .query_atomic = NULL,
+    .query_collective = fi_no_query_collective,
 };
 
 static int sm2_domain_close(fid_t fid)
@@ -66,22 +66,22 @@ static int sm2_domain_close(fid_t fid)
 }
 
 static struct fi_ops sm2_domain_fi_ops = {
-	.size = sizeof(struct fi_ops),
-	.close = sm2_domain_close,
-	.bind = fi_no_bind,
-	.control = fi_no_control,
-	.ops_open = fi_no_ops_open,
+    .size = sizeof(struct fi_ops),
+    .close = sm2_domain_close,
+    .bind = fi_no_bind,
+    .control = fi_no_control,
+    .ops_open = fi_no_ops_open,
 };
 
 static struct fi_ops_mr sm2_mr_ops = {
-	.size = sizeof(struct fi_ops_mr),
-	.reg = ofi_mr_reg,
-	.regv = ofi_mr_regv,
-	.regattr = ofi_mr_regattr,
+    .size = sizeof(struct fi_ops_mr),
+    .reg = ofi_mr_reg,
+    .regv = ofi_mr_regv,
+    .regattr = ofi_mr_regattr,
 };
 
 int sm2_domain_open(struct fid_fabric *fabric, struct fi_info *info,
-		struct fid_domain **domain, void *context)
+		    struct fid_domain **domain, void *context)
 {
 	int ret;
 	struct sm2_domain *sm2_domain;
