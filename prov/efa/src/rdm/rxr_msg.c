@@ -531,7 +531,7 @@ int rxr_msg_handle_unexp_match(struct rxr_ep *ep,
 			       void *context, fi_addr_t addr,
 			       uint32_t op, uint64_t flags)
 {
-	struct rxr_pkt_entry *pkt_entry;
+	struct rxr_pkt_entry *pkt_entry = NULL;
 	struct fid_peer_srx *srx;
 	uint64_t data_len;
 
@@ -539,9 +539,12 @@ int rxr_msg_handle_unexp_match(struct rxr_ep *ep,
 	rx_entry->ignore = ignore;
 	rx_entry->state = RXR_RX_MATCHED;
 
-	pkt_entry = rx_entry->unexp_pkt;
-	rx_entry->unexp_pkt = NULL;
-	data_len = rxr_pkt_rtm_total_len(pkt_entry);
+	data_len = rx_entry->total_len;
+
+	if (!rx_entry->rxr_flags && RXR_RX_ENTRY_FOR_PEER_SRX) {
+		pkt_entry = rx_entry->unexp_pkt;
+		rx_entry->unexp_pkt = NULL;
+	}
 
 	rx_entry->cq_entry.op_context = context;
 	/*
@@ -660,11 +663,18 @@ struct rxr_op_entry *rxr_msg_alloc_unexp_rx_entry_for_msgrtm(struct rxr_ep *ep,
 {
 	struct rxr_op_entry *rx_entry;
 	struct rxr_pkt_entry *unexp_pkt_entry;
+	enum rxr_pkt_entry_alloc_type type;
 
-	unexp_pkt_entry = rxr_pkt_get_unexp(ep, pkt_entry_ptr);
-	if (OFI_UNLIKELY(!unexp_pkt_entry)) {
-		EFA_WARN(FI_LOG_CQ, "packet entries exhausted.\n");
-		return NULL;
+	type = (*pkt_entry_ptr)->alloc_type;
+
+	if (type == RXR_PKT_FROM_PEER_SRX) {
+		unexp_pkt_entry = *pkt_entry_ptr;
+	} else {
+		unexp_pkt_entry = rxr_pkt_get_unexp(ep, pkt_entry_ptr);
+		if (OFI_UNLIKELY(!unexp_pkt_entry)) {
+			EFA_WARN(FI_LOG_CQ, "packet entries exhausted.\n");
+			return NULL;
+		}
 	}
 
 	rx_entry = rxr_ep_alloc_rx_entry(ep, unexp_pkt_entry->addr, ofi_op_msg);
@@ -673,7 +683,12 @@ struct rxr_op_entry *rxr_msg_alloc_unexp_rx_entry_for_msgrtm(struct rxr_ep *ep,
 
 	rx_entry->rxr_flags = 0;
 	rx_entry->state = RXR_RX_UNEXP;
-	rx_entry->unexp_pkt = unexp_pkt_entry;
+	/*
+	 * The pkt entry from peer srx is transient, we cannot store it in rx_entry->unexp_pkt.
+	 * All the required information from this pkt is already updated to rx_entry
+	 * via rxr_pkt_rtm_update_rx_entry().
+	 */
+	rx_entry->unexp_pkt = (type == RXR_PKT_FROM_PEER_SRX) ? NULL : unexp_pkt_entry;
 	rxr_pkt_rtm_update_rx_entry(unexp_pkt_entry, rx_entry);
 	return rx_entry;
 }
@@ -747,6 +762,7 @@ struct rxr_op_entry *rxr_msg_split_rx_entry(struct rxr_ep *ep,
 		       "Splitting into new multi_recv consumer rx_entry %d from rx_entry %d\n",
 		       rx_entry->rx_id,
 		       posted_entry->rx_id);
+		rxr_pkt_rtm_update_rx_entry(pkt_entry, rx_entry);
 	} else {
 		rx_entry = consumer_entry;
 		memcpy(rx_entry->iov, posted_entry->iov,
@@ -754,14 +770,12 @@ struct rxr_op_entry *rxr_msg_split_rx_entry(struct rxr_ep *ep,
 		rx_entry->iov_count = posted_entry->iov_count;
 	}
 
-	rxr_pkt_rtm_update_rx_entry(pkt_entry, rx_entry);
 	data_len = rx_entry->total_len;
 	buf_len = ofi_total_iov_len(rx_entry->iov,
 				    rx_entry->iov_count);
 	consumed_len = MIN(buf_len, data_len);
 
 	rx_entry->rxr_flags |= RXR_RX_ENTRY_MULTI_RECV_CONSUMER;
-	rx_entry->total_len = data_len;
 	rx_entry->fi_flags |= FI_MULTI_RECV;
 	rx_entry->master_entry = posted_entry;
 	rx_entry->cq_entry.len = consumed_len;
@@ -874,7 +888,7 @@ int rxr_msg_proc_unexp_msg_list(struct rxr_ep *ep, const struct fi_msg *msg,
 		 * rxr_msg_split_rx_entry will setup rx_entry iov and count
 		 */
 		rx_entry = rxr_msg_split_rx_entry(ep, posted_entry, rx_entry,
-						 rx_entry->unexp_pkt);
+						 NULL);
 		if (OFI_UNLIKELY(!rx_entry)) {
 			EFA_WARN(FI_LOG_CQ,
 				"RX entries exhausted.\n");
@@ -1175,7 +1189,6 @@ ssize_t rxr_msg_peek_trecv(struct fid_ep *ep_fid,
 	struct rxr_ep *ep;
 	struct rxr_op_entry *rx_entry;
 	struct fi_context *context;
-	struct rxr_pkt_entry *pkt_entry;
 	size_t data_len;
 	int64_t tag;
 	bool claim;
@@ -1219,9 +1232,8 @@ ssize_t rxr_msg_peek_trecv(struct fid_ep *ep_fid,
 		goto out;
 	}
 
-	pkt_entry = rx_entry->unexp_pkt;
-	data_len = rxr_pkt_rtm_total_len(pkt_entry);
-	tag = rxr_pkt_rtm_tag(pkt_entry);
+	data_len = rx_entry->total_len;
+	tag = rx_entry->tag;
 
 	if (ep->base_ep.util_ep.caps & FI_SOURCE)
 		ret = ofi_cq_write_src(ep->base_ep.util_ep.rx_cq, context,

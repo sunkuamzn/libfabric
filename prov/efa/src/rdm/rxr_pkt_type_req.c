@@ -1034,6 +1034,9 @@ void rxr_pkt_rtm_update_rx_entry(struct rxr_pkt_entry *pkt_entry,
 				 struct rxr_op_entry *rx_entry)
 {
 	struct rxr_base_hdr *base_hdr;
+	enum rxr_pkt_entry_alloc_type type;
+
+	type = pkt_entry->alloc_type;
 
 	base_hdr = rxr_get_base_hdr(pkt_entry->wiredata);
 	if (base_hdr->flags & RXR_REQ_OPT_CQ_DATA_HDR) {
@@ -1046,6 +1049,9 @@ void rxr_pkt_rtm_update_rx_entry(struct rxr_pkt_entry *pkt_entry,
 	rx_entry->total_len = rxr_pkt_rtm_total_len(pkt_entry);
 	rx_entry->tag = rxr_pkt_rtm_tag(pkt_entry);
 	rx_entry->cq_entry.tag = rx_entry->tag;
+
+	if (type == RXR_PKT_FROM_PEER_SRX)
+		rx_entry->rxr_flags |= RXR_RX_ENTRY_FOR_PEER_SRX;
 }
 
 struct rxr_op_entry *rxr_pkt_get_rtm_matched_rx_entry(struct rxr_ep *ep,
