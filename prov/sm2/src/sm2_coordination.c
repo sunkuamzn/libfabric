@@ -1,15 +1,15 @@
-#include <stdlib.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <stdio.h>
-#include <unistd.h>
 #include "sm2_atomic.h"
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "sm2.h"
 
-#define NEXT_MULTIPLE_OF(x, mod) x%mod ? ((x/mod)+1)*mod : x
+#define NEXT_MULTIPLE_OF(x, mod) x % mod ? ((x / mod) + 1) * mod : x
 #define ZOMBIE_ALLOCATION_NAME "ZOMBIE"
 
 static void sm2_coordinator_attempt_shm_file_shrink(struct sm2_mmap *map);
@@ -19,14 +19,15 @@ static void sm2_coordinator_attempt_shm_file_shrink(struct sm2_mmap *map);
  *
  * @param[in] fd
  * @param[out] map
-*/
-void* sm2_mmap_map(int fd, struct sm2_mmap *map )
+ */
+void *sm2_mmap_map(int fd, struct sm2_mmap *map)
 {
 	struct stat st;
 	int err;
 
 	err = fstat(fd, &st);
-	if (err) goto out;
+	if (err)
+		goto out;
 	map->base = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 	map->fd = fd;
 	map->size = st.st_size;
@@ -47,38 +48,45 @@ out:
  *
  * @param[inout] map
  * @param[in] at_least
-*/
-void* sm2_mmap_remap(struct sm2_mmap *map, size_t at_least)
+ */
+void *sm2_mmap_remap(struct sm2_mmap *map, size_t at_least)
 {
 	struct stat st;
 	int err;
 
 	/* return quickly if no need to check the file. */
-	if (map->size >= at_least) return map->base;
+	if (map->size >= at_least)
+		return map->base;
 
 	err = fstat(map->fd, &st);
-	if (err) goto out;
+	if (err)
+		goto out;
 
 	if (st.st_size < at_least) {
 		/* we need to grow the file. */
 		err = ftruncate(map->fd, at_least);
-		if (err) goto out;
-	} else if (st.st_size >= map->size) {
+		if (err)
+			goto out;
+	}
+	else if (st.st_size >= map->size) {
 		/* file has been extended by another process since
 		   last we checked.  Re-map the entire file. */
 		at_least = st.st_size;
-	} else {
+	}
+	else {
 		/* file has shrunk since we checked. */
 		// TODO we should find a way to tell other processes to re-map and
 		// remove this warning.
 		FI_WARN(&sm2_prov, FI_LOG_AV, "Shm file has shrunk, re-mapping!\n");
 		at_least = st.st_size;
 	}
-	if (map->size != at_least ) {
+	if (map->size != at_least) {
 		/* now un-map and re-map the file */
-		err = munmap( map->base, map->size);
-		if (err) goto out;
-		map->base = mmap(0, at_least, PROT_READ | PROT_WRITE, MAP_SHARED, map->fd, 0);
+		err = munmap(map->base, map->size);
+		if (err)
+			goto out;
+		map->base =
+		    mmap(0, at_least, PROT_READ | PROT_WRITE, MAP_SHARED, map->fd, 0);
 		map->size = at_least;
 	}
 
@@ -92,8 +100,8 @@ out:
 
 /**
  * @brief close fd, and unmap memory
-*/
-ssize_t sm2_mmap_unmap_and_close(struct sm2_mmap *map )
+ */
+ssize_t sm2_mmap_unmap_and_close(struct sm2_mmap *map)
 {
 	int err;
 	err = close(map->fd);
@@ -101,13 +109,12 @@ ssize_t sm2_mmap_unmap_and_close(struct sm2_mmap *map )
 	return err;
 }
 
-
 /**
  * @brief open and/or create the coordination file
  *
  * Upon return, we own the write-lock on the coordination file
  * @param[out] map_shared
-*/
+ */
 ssize_t sm2_coordinator_open_and_lock(struct sm2_mmap *map_shared)
 {
 	pthread_mutexattr_t att;
@@ -118,7 +125,7 @@ ssize_t sm2_coordinator_open_and_lock(struct sm2_mmap *map_shared)
 	int fd, common_fd, err, tries, pid;
 
 	pid = getpid();
-	sprintf(template,"%s/fi_sm2_pid%d_XXXXXX",SM2_COORDINATION_DIR,pid);
+	sprintf(template, "%s/fi_sm2_pid%d_XXXXXX", SM2_COORDINATION_DIR, pid);
 
 	char lock_status;
 
@@ -131,25 +138,26 @@ ssize_t sm2_coordinator_open_and_lock(struct sm2_mmap *map_shared)
 	header = sm2_mmap_map(fd, &map_ours);
 
 	pthread_mutexattr_init(&att);
-	//pthread_mutexattr_setrobust(&att, PTHREAD_MUTEX_ROBUST);
+	// pthread_mutexattr_setrobust(&att, PTHREAD_MUTEX_ROBUST);
 	pthread_mutexattr_setpshared(&att, PTHREAD_PROCESS_SHARED);
 	pthread_mutex_init(&header->write_lock, &att);
 	/* since this is currently our own private mutex,
 	   this lock is uncontested */
 	pthread_mutex_lock(&header->write_lock);
 
-	ofi_atomic_initialize32( &header->pid_lock_hint, pid );
+	ofi_atomic_initialize32(&header->pid_lock_hint, pid);
 	header->file_version = 1;
-	header->ep_region_size = 16777216; // TODO: base on sm2_calculate_size, and
-	header->ep_enumerations_max = 4096; // TODO: base on FI_UNIVERSE size times 10 or 20 (many distinct universes)
+	header->ep_region_size = 16777216;  // TODO: base on sm2_calculate_size, and
+	header->ep_enumerations_max = 4096; // TODO: base on FI_UNIVERSE size times 10 or
+					    // 20 (many distinct universes)
 
 	header->ep_enumerations_offset = sizeof(struct sm2_coord_file_header);
 	header->ep_enumerations_offset =
-		NEXT_MULTIPLE_OF(header->ep_enumerations_offset, 4096);
+	    NEXT_MULTIPLE_OF(header->ep_enumerations_offset, 4096);
 
 	header->ep_regions_offset =
-		header->ep_enumerations_offset +
-			(header->ep_enumerations_max * sizeof(struct sm2_ep_allocation_entry));
+	    header->ep_enumerations_offset +
+	    (header->ep_enumerations_max * sizeof(struct sm2_ep_allocation_entry));
 
 	header->ep_regions_offset = NEXT_MULTIPLE_OF(header->ep_regions_offset, 4096);
 
@@ -157,7 +165,7 @@ ssize_t sm2_coordinator_open_and_lock(struct sm2_mmap *map_shared)
 	   data exchange regions yet. */
 	header = sm2_mmap_remap(&map_ours, header->ep_regions_offset);
 	entries = sm2_mmap_entries(&map_ours);
-	for (int jentry=0; jentry<header->ep_enumerations_max; jentry++) {
+	for (int jentry = 0; jentry < header->ep_enumerations_max; jentry++) {
 		entries[jentry].pid = 0;
 	}
 
@@ -170,7 +178,7 @@ ssize_t sm2_coordinator_open_and_lock(struct sm2_mmap *map_shared)
 	do {
 		/* create a hardlink to our file with the common name.
 		   - on success: we hold the lock to a newly
-		   	         created coordination file.
+				 created coordination file.
 		   - on failure: the file already exists, we should try opening it.*/
 		err = link(template, SM2_COORDINATION_FILE);
 		if (0 == err) {
@@ -187,29 +195,25 @@ ssize_t sm2_coordinator_open_and_lock(struct sm2_mmap *map_shared)
 			err = pthread_mutex_trylock(&tmp_header->write_lock);
 			if (err == 0) {
 				/* lock acquired! */
-				ofi_atomic_set32( &tmp_header->pid_lock_hint, pid );
+				ofi_atomic_set32(&tmp_header->pid_lock_hint, pid);
 
 				lock_status = 'S'; /* shared */
 				break;
 			}
-			pid_holding = ofi_atomic_get32( &tmp_header->pid_lock_hint );
+			pid_holding = ofi_atomic_get32(&tmp_header->pid_lock_hint);
 
 			/* check if pid_holding is alive by issuing it a
 			   NULL signal (0).  This will not interrupt
 			   the process, but only succeeds if the pid is
 			   still running. */
-<<<<<<< Updated upstream
-			if (pid_holding==0 || !pid_lives(pid_holding)) {
-				/* TODO: unlinking is pretty harsh, but might be the only good option.*/
-=======
 			if (!pid_lives(pid_holding)) {
 				/* TODO: unlinking is pretty harsh, but might be the only
 				 * good option.*/
->>>>>>> Stashed changes
 				unlink(SM2_COORDINATION_FILE);
 				FI_WARN(&sm2_prov, FI_LOG_AV,
-				"Unlinked file %s because PID=%d held the lock, but it has died\n",
-				SM2_COORDINATION_FILE, pid_holding);
+					"Unlinked file %s because PID=%d held the lock, "
+					"but it has died\n",
+					SM2_COORDINATION_FILE, pid_holding);
 			}
 			sm2_mmap_unmap_and_close(map_shared);
 		}
@@ -217,30 +221,32 @@ ssize_t sm2_coordinator_open_and_lock(struct sm2_mmap *map_shared)
 		usleep(10000);
 	} while (tries-- > 0);
 
-	switch(lock_status) {
+	switch (lock_status) {
 	case 'F':
-	/* failed to acquire. now what? */
-		fprintf(stderr, "Failed to acquire the lock to the coordination file. Aborting\n");
+		/* failed to acquire. now what? */
+		fprintf(
+		    stderr,
+		    "Failed to acquire the lock to the coordination file. Aborting\n");
 		abort();
 	case 'S':
-	/* We acquired the lock on the global file.
-	 * Attempt to shrink global file.
-	 * Unmap the memory that we initialized */
+		/* We acquired the lock on the global file.
+		 * Attempt to shrink global file.
+		 * Unmap the memory that we initialized */
 		sm2_coordinator_attempt_shm_file_shrink(map_shared);
 		sm2_mmap_unmap_and_close(&map_ours);
 		break;
 	case 'O':
-	/* We are using the memory we initialized.  Duplicate it and
-	   leave the map open. */
-		memcpy( map_shared, &map_ours, sizeof(struct sm2_mmap));
+		/* We are using the memory we initialized.  Duplicate it and
+		   leave the map open. */
+		memcpy(map_shared, &map_ours, sizeof(struct sm2_mmap));
 		break;
 	default:
 		/* catch cosmic ray bit-flips */
-		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL,
-			"Error during sm2_coordinator_open_and_lock, unknown lock state\n");
+		FI_WARN(
+		    &sm2_prov, FI_LOG_EP_CTRL,
+		    "Error during sm2_coordinator_open_and_lock, unknown lock state\n");
 		abort();
 	}
-
 
 	/* now that we have the lock, we can remove our temp file. */
 	unlink(template);
@@ -259,11 +265,12 @@ ssize_t sm2_coordinator_open_and_lock(struct sm2_mmap *map_shared)
  * @param[in] self	When true, we will "own" the entry (entry.pid = getpid())
  *			When False, we set pid = -getpid(), allowing owner to claim later
  * @return 0 on success, some negative FI_ERROR on error
-*/
-ssize_t sm2_coordinator_allocate_entry(const char* name, struct sm2_mmap *map, int *av_key, bool self)
+ */
+ssize_t sm2_coordinator_allocate_entry(const char *name, struct sm2_mmap *map,
+				       int *av_key, bool self)
 {
 
-	struct sm2_coord_file_header *header = (void*)map->base;
+	struct sm2_coord_file_header *header = (void *)map->base;
 	struct sm2_ep_allocation_entry *entries;
 	int jentry;
 	int pid = getpid();
@@ -272,8 +279,8 @@ ssize_t sm2_coordinator_allocate_entry(const char* name, struct sm2_mmap *map, i
 #ifndef NDEBUG
 	{
 		int pid = getpid();
-		int pid_hint = ofi_atomic_get32( &header->pid_lock_hint );
-		assert( pid_hint == pid );
+		int pid_hint = ofi_atomic_get32(&header->pid_lock_hint);
+		assert(pid_hint == pid);
 	}
 #endif
 
@@ -286,7 +293,7 @@ retry_lookup:
 		// Map Now
 		sm2_coordinator_extend_for_entry(map, jentry);
 		entries = sm2_mmap_entries(map);
-		header = (void*)map->base;
+		header = (void *)map->base;
 
 		// Check if it is dirty and unclean
 		if (entries[jentry].pid && !pid_lives(abs(entries[jentry].pid))) {
@@ -295,10 +302,13 @@ retry_lookup:
 				// Region did not shut down properly, but other processes
 				// might be using it, make it a zombie region - never
 				// use this region for as long as the file exists
-				FI_WARN( &sm2_prov, FI_LOG_AV,
-					"Found region at AV[%d] that did not shut down correctly, marking it as a zombie never to be used again!\n",
+				FI_WARN(&sm2_prov, FI_LOG_AV,
+					"Found region at AV[%d] that did not shut down "
+					"correctly, marking it as a zombie never to be "
+					"used again!\n",
 					jentry);
-				strncpy(entries[jentry].ep_name, ZOMBIE_ALLOCATION_NAME, SM2_NAME_MAX);
+				strncpy(entries[jentry].ep_name, ZOMBIE_ALLOCATION_NAME,
+					SM2_NAME_MAX);
 				goto retry_lookup;
 			}
 		}
@@ -313,53 +323,62 @@ retry_lookup:
 
 		if (entries[jentry].pid <= 0) {
 			if (!pid_lives(abs(entries[jentry].pid))) {
-				FI_WARN( &sm2_prov, FI_LOG_AV,
-					"during sm2 allocation of space for endpoint named %s"
-					" pid %d pre-allocated space at AV[%d] and then died!\n",
-					name, -entries[jentry].pid, jentry);
+				FI_WARN(
+				    &sm2_prov, FI_LOG_AV,
+				    "during sm2 allocation of space for endpoint named %s"
+				    " pid %d pre-allocated space at AV[%d] and then "
+				    "died!\n",
+				    name, -entries[jentry].pid, jentry);
 			}
 			goto found;
 		}
 
-		FI_WARN( &sm2_prov, FI_LOG_AV,
+		FI_WARN(&sm2_prov, FI_LOG_AV,
 			"During sm2 allocation of space for endpoint named %s "
 			"an existing conflicting address was found at AV[%d]\n",
 			name, jentry);
 
-		if (!pid_lives( entries[jentry].pid )) {
-			FI_WARN( &sm2_prov, FI_LOG_AV,
-			"The pid which allocated the conflicting AV is dead.  "
-			"Reclaiming as our own.\n");
+		if (!pid_lives(entries[jentry].pid)) {
+			FI_WARN(&sm2_prov, FI_LOG_AV,
+				"The pid which allocated the conflicting AV is dead.  "
+				"Reclaiming as our own.\n");
 			// it is possible that EP's referencing this region are
 			// still alive... don't know how to check (they likely
 			// died if PID died)
 			goto found;
 		}
 		else {
-			FI_WARN( &sm2_prov, FI_LOG_AV,
-			        "ERROR: The endpoint (pid: %d) with conflicting address %s is still alive.\n", entries[jentry].pid, name);
+			FI_WARN(&sm2_prov, FI_LOG_AV,
+				"ERROR: The endpoint (pid: %d) with conflicting address "
+				"%s is still alive.\n",
+				entries[jentry].pid, name);
 			return -FI_EADDRINUSE;
 		}
 	}
 
 	/* fine, we could not find the entry, so now look for an empty slot */
-	for (jentry=0; jentry < header->ep_enumerations_max; jentry++) {
+	for (jentry = 0; jentry < header->ep_enumerations_max; jentry++) {
 		peer_pid = entries[jentry].pid;
-		if (peer_pid == 0) goto found;
+		if (peer_pid == 0)
+			goto found;
 		else if (peer_pid < 0) {
 			// A third peer might have entered this address into their AV,
 			// and there is no current way to check this... need to keep this
 			// entry in the file until we clean up
 			continue;
-		} else {
+		}
+		else {
 			if (!pid_lives(peer_pid)) {
 				sm2_coordinator_extend_for_entry(map, jentry);
 				entries = sm2_mmap_entries(map);
-				header = (void*)map->base;
-				struct sm2_region *peer_region = sm2_mmap_ep_region(map, jentry);
+				header = (void *)map->base;
+				struct sm2_region *peer_region =
+				    sm2_mmap_ep_region(map, jentry);
 
-				if (entries[jentry].startup_ready && smr_freestack_isfull(sm2_free_stack(peer_region))) {
-					/* we found a slot with a dead PID and the freestack is full */
+				if (entries[jentry].startup_ready &&
+				    smr_freestack_isfull(sm2_free_stack(peer_region))) {
+					/* we found a slot with a dead PID and the
+					 * freestack is full */
 					entries[jentry].pid = 0;
 					goto found;
 				};
@@ -367,7 +386,10 @@ retry_lookup:
 		}
 	}
 
-	fprintf(stderr, "No available entries were found in the coordination file, all %d were used\n", header->ep_enumerations_max);
+	fprintf(stderr,
+		"No available entries were found in the coordination file, all %d were "
+		"used\n",
+		header->ep_enumerations_max);
 	return -FI_EAVAIL;
 
 found:
@@ -384,15 +406,14 @@ found:
 		entries[jentry].pid = -pid;
 	}
 
-	FI_WARN(&sm2_prov, FI_LOG_AV,
-		"Allocated sm2 region for %s at AV[%d]\n",
-		name, jentry);
+	FI_WARN(&sm2_prov, FI_LOG_AV, "Allocated sm2 region for %s at AV[%d]\n", name,
+		jentry);
 	strncpy(entries[jentry].ep_name, name, SM2_NAME_MAX);
 
 	*av_key = jentry;
 
 	/* With the entry allocated, we now need to ensure it's mapped. */
-	if (!sm2_mapping_long_enough_check( map, jentry )) {
+	if (!sm2_mapping_long_enough_check(map, jentry)) {
 		sm2_coordinator_extend_for_entry(map, jentry);
 	}
 	return 0;
@@ -404,26 +425,33 @@ found:
  * @param[in] name
  * @param[in] map
  * @return the index of the name, or -1
-*/
-int sm2_coordinator_lookup_entry(const char* name, struct sm2_mmap *map)
+ */
+int sm2_coordinator_lookup_entry(const char *name, struct sm2_mmap *map)
 {
 
-	struct sm2_coord_file_header *header = (void*) map->base;
+	struct sm2_coord_file_header *header = (void *)map->base;
 	struct sm2_ep_allocation_entry *entries;
 	int jentry;
 
 	entries = sm2_mmap_entries(map);
 
-	for (jentry=0; jentry < header->ep_enumerations_max; jentry++) {
+	for (jentry = 0; jentry < header->ep_enumerations_max; jentry++) {
 		if (0 == strncmp(name, entries[jentry].ep_name, SM2_NAME_MAX)) {
-			FI_WARN(&sm2_prov, FI_LOG_AV,
-				"Found existing %s in slot %d\n",name,jentry);
+			FI_WARN(&sm2_prov, FI_LOG_AV, "Found existing %s in slot %d\n",
+				name, jentry);
 			return jentry;
 		}
 		if (entries[jentry].ep_name[0] != '\0') {
-			FI_WARN(&sm2_prov, FI_LOG_EP_CTRL, "Searching for %s. Not yet found in spot AV[%d]=%s, PID= %d\n",name, jentry, entries[jentry].ep_name, entries[jentry].pid);
-		} else if (!strcmp(entries[jentry].ep_name, ZOMBIE_ALLOCATION_NAME)) {
-			FI_WARN(&sm2_prov, FI_LOG_EP_CTRL, "Found zombie in spot AV[%d], PID= %d\n", jentry, entries[jentry].pid);
+			FI_WARN(&sm2_prov, FI_LOG_EP_CTRL,
+				"Searching for %s. Not yet found in spot AV[%d]=%s, PID= "
+				"%d\n",
+				name, jentry, entries[jentry].ep_name,
+				entries[jentry].pid);
+		}
+		else if (!strcmp(entries[jentry].ep_name, ZOMBIE_ALLOCATION_NAME)) {
+			FI_WARN(&sm2_prov, FI_LOG_EP_CTRL,
+				"Found zombie in spot AV[%d], PID= %d\n", jentry,
+				entries[jentry].pid);
 		}
 	}
 	return -1;
@@ -435,40 +463,43 @@ int sm2_coordinator_lookup_entry(const char* name, struct sm2_mmap *map)
  * @param[in] name
  * @param[inout] map
  * @param[out] av_key
-*/
+ */
 ssize_t sm2_coordinator_free_entry(struct sm2_mmap *map, int av_key)
 {
 	struct sm2_ep_allocation_entry *entries;
 	int pid = getpid();
-	(void) pid;
+	(void)pid;
 	entries = sm2_mmap_entries(map);
-	assert( entries[av_key].pid == pid );
+	assert(entries[av_key].pid == pid);
 	entries[av_key].pid = 0;
 	return 0;
 }
 
-
-ssize_t sm2_coordinator_lock(struct sm2_mmap *map) {
-	struct sm2_coord_file_header *header = (void*) map->base;
+ssize_t sm2_coordinator_lock(struct sm2_mmap *map)
+{
+	struct sm2_coord_file_header *header = (void *)map->base;
 	int pid = getpid();
 
 	pthread_mutex_lock(&header->write_lock);
-	ofi_atomic_set32( &header->pid_lock_hint, pid );
+	ofi_atomic_set32(&header->pid_lock_hint, pid);
 	return 0;
 }
 
-ssize_t sm2_coordinator_unlock(struct sm2_mmap *map) {
-	struct sm2_coord_file_header *header = (void*) map->base;
+ssize_t sm2_coordinator_unlock(struct sm2_mmap *map)
+{
+	struct sm2_coord_file_header *header = (void *)map->base;
 	int pid = getpid();
-	int hint_pid = ofi_atomic_get32( &header->pid_lock_hint );
+	int hint_pid = ofi_atomic_get32(&header->pid_lock_hint);
 	if (pid != hint_pid) {
-		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL, "We should (%d) hold the lock, but pid_lock_hint is %d!",pid,hint_pid);
+		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL,
+			"We should (%d) hold the lock, but pid_lock_hint is %d!", pid,
+			hint_pid);
 	}
 	pthread_mutex_unlock(&header->write_lock);
 
 	/* use CAS to clear pid because it's possible another process has
 	   already acquired the lock.  CAS will only clear it if we hold it. */
-	ofi_atomic_cas_bool32( &header->pid_lock_hint, pid, 0);
+	ofi_atomic_cas_bool32(&header->pid_lock_hint, pid, 0);
 	return 0;
 }
 
@@ -485,33 +516,41 @@ ssize_t sm2_coordinator_unlock(struct sm2_mmap *map) {
  * @param[in,out] map			an sm2_mmap with fid, size and base address
  * @param[in] last_valid_entry		The id of a region we need to be valid.
  * @return pointer to new map->base (typically ignored)
-*/
-void* sm2_coordinator_extend_for_entry(struct sm2_mmap *map, int last_valid_entry) {
+ */
+void *sm2_coordinator_extend_for_entry(struct sm2_mmap *map, int last_valid_entry)
+{
 	size_t new_size;
-	new_size = (char*)sm2_mmap_ep_region(map, last_valid_entry+1) - map->base;
+	new_size = (char *)sm2_mmap_ep_region(map, last_valid_entry + 1) - map->base;
 	return sm2_mmap_remap(map, new_size);
 }
 
-// TODO combine this logic with the remap function while keeping remaps()'s short circuit logic
-static void* sm2_mmap_shrink_to_size(struct sm2_mmap *map, size_t shrink_size)
+// TODO combine this logic with the remap function while keeping remaps()'s short circuit
+// logic
+static void *sm2_mmap_shrink_to_size(struct sm2_mmap *map, size_t shrink_size)
 {
 	struct stat st;
 	int err;
 
 	err = fstat(map->fd, &st);
-	if (err) goto out;
+	if (err)
+		goto out;
 
 	if (st.st_size > shrink_size) {
 		/* we need to shrink the file. */
-		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL,
-			"sm2_mmap_shrink_to_index() shrinking SHM file to be of size %zu\n", shrink_size);
+		FI_WARN(
+		    &sm2_prov, FI_LOG_EP_CTRL,
+		    "sm2_mmap_shrink_to_index() shrinking SHM file to be of size %zu\n",
+		    shrink_size);
 		err = ftruncate(map->fd, shrink_size);
-		if (err) goto out;
+		if (err)
+			goto out;
 
 		/* now un-map and re-map the file */
-		err = munmap( map->base, map->size);
-		if (err) goto out;
-		map->base = mmap(0, shrink_size, PROT_READ | PROT_WRITE, MAP_SHARED, map->fd, 0);
+		err = munmap(map->base, map->size);
+		if (err)
+			goto out;
+		map->base =
+		    mmap(0, shrink_size, PROT_READ | PROT_WRITE, MAP_SHARED, map->fd, 0);
 		map->size = shrink_size;
 	}
 
@@ -527,10 +566,10 @@ out:
  * If everything in the file is dead, shrink it to fit 1 entry.
  * This deals with peer pre-allocated entries by making the assumption that
  * my PID must be alive in the file in order for me to hold any of my peers allocations.
-*/
+ */
 static void sm2_coordinator_attempt_shm_file_shrink(struct sm2_mmap *map)
 {
-	struct sm2_coord_file_header *header = (void*) map->base;
+	struct sm2_coord_file_header *header = (void *)map->base;
 	struct sm2_ep_allocation_entry *entries = sm2_mmap_entries(map);
 	int jentry;
 	bool shrink_file = true;

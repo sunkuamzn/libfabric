@@ -33,9 +33,9 @@
 
 #ifndef _SM2_SIGNAL_H_
 #define _SM2_SIGNAL_H_
-#include <signal.h>
-#include "sm2_common.h"
 #include "sm2.h"
+#include "sm2_common.h"
+#include <signal.h>
 
 extern struct sigaction *sm2_old_action;
 
@@ -44,8 +44,8 @@ static void sm2_handle_signal(int signum, siginfo_t *info, void *ucontext)
 	struct sm2_ep_name *ep_name;
 	int ret;
 
-	dlist_foreach_container(&sm2_ep_name_list, struct sm2_ep_name,
-				ep_name, entry) {
+	dlist_foreach_container(&sm2_ep_name_list, struct sm2_ep_name, ep_name, entry)
+	{
 		shm_unlink(ep_name->name);
 	}
 
@@ -59,7 +59,6 @@ static void sm2_handle_signal(int signum, siginfo_t *info, void *ucontext)
 		sm2_old_action[signum].sa_sigaction(signum, info, ucontext);
 	else
 		raise(signum);
-
 }
 
 static inline void sm2_reg_sig_handler(int signum)

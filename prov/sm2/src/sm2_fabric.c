@@ -36,8 +36,7 @@
 
 #include "sm2.h"
 
-static int sm2_wait_open(struct fid_fabric *fabric_fid,
-			 struct fi_wait_attr *attr,
+static int sm2_wait_open(struct fid_fabric *fabric_fid, struct fi_wait_attr *attr,
 			 struct fid_wait **waitset)
 {
 	switch (attr->wait_obj) {
@@ -51,14 +50,12 @@ static int sm2_wait_open(struct fid_fabric *fabric_fid,
 	}
 }
 
-static struct fi_ops_fabric sm2_fabric_ops = {
-	.size = sizeof(struct fi_ops_fabric),
-	.domain = sm2_domain_open,
-	.passive_ep = fi_no_passive_ep,
-	.eq_open = ofi_eq_create,
-	.wait_open = sm2_wait_open,
-	.trywait = ofi_trywait
-};
+static struct fi_ops_fabric sm2_fabric_ops = {.size = sizeof(struct fi_ops_fabric),
+					      .domain = sm2_domain_open,
+					      .passive_ep = fi_no_passive_ep,
+					      .eq_open = ofi_eq_create,
+					      .wait_open = sm2_wait_open,
+					      .trywait = ofi_trywait};
 
 static int sm2_fabric_close(fid_t fid)
 {
@@ -73,15 +70,14 @@ static int sm2_fabric_close(fid_t fid)
 }
 
 static struct fi_ops sm2_fabric_fi_ops = {
-	.size = sizeof(struct fi_ops),
-	.close = sm2_fabric_close,
-	.bind = fi_no_bind,
-	.control = fi_no_control,
-	.ops_open = fi_no_ops_open,
+    .size = sizeof(struct fi_ops),
+    .close = sm2_fabric_close,
+    .bind = fi_no_bind,
+    .control = fi_no_control,
+    .ops_open = fi_no_ops_open,
 };
 
-int sm2_fabric(struct fi_fabric_attr *attr, struct fid_fabric **fabric,
-		void *context)
+int sm2_fabric(struct fi_fabric_attr *attr, struct fid_fabric **fabric, void *context)
 {
 	int ret;
 	struct sm2_fabric *sm2_fabric;
