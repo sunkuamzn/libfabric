@@ -1009,12 +1009,10 @@ fi_addr_t rxr_pkt_determine_addr(struct rxr_ep *ep, struct rxr_pkt_entry *pkt_en
  *
  * @param	ep[in,out]		endpoint
  * @param	pkt_entry[in,out]	received packet, will be released by this function
- * @param	lower_ep_type[in]	indicates which type of lower device this packet was received from.
  * 					Possible values are SHM_EP and EFA_EP.
  */
 void rxr_pkt_handle_recv_completion(struct rxr_ep *ep,
-				    struct rxr_pkt_entry *pkt_entry,
-				    enum rxr_lower_ep_type lower_ep_type)
+				    struct rxr_pkt_entry *pkt_entry)
 {
 	int pkt_type;
 	struct efa_rdm_peer *peer;
@@ -1061,7 +1059,7 @@ void rxr_pkt_handle_recv_completion(struct rxr_ep *ep,
 #endif
 	peer = rxr_ep_get_peer(ep, pkt_entry->addr);
 	assert(peer);
-	if (peer->is_local && lower_ep_type == EFA_EP) {
+	if (peer->is_local) {
 		/*
 		 * This happens when the peer is on same instance, but chose to
 		 * use EFA device to communicate with me. In this case, we respect
@@ -1073,12 +1071,7 @@ void rxr_pkt_handle_recv_completion(struct rxr_ep *ep,
 
 	rxr_pkt_post_handshake_or_queue(ep, peer);
 
-	if (lower_ep_type == SHM_EP) {
-		ep->shm_rx_pkts_posted--;
-	} else {
-		assert(lower_ep_type == EFA_EP);
-		ep->efa_rx_pkts_posted--;
-	}
+	ep->efa_rx_pkts_posted--;
 
 	if (pkt_entry->alloc_type == RXR_PKT_FROM_USER_BUFFER) {
 		assert(pkt_entry->x_entry);

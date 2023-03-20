@@ -271,11 +271,10 @@ int rxr_ep_post_user_recv_buf(struct rxr_ep *ep, struct rxr_op_entry *rx_entry, 
  *
  * @param[in]	ep		endpoint
  * @param[in]	flags		flags passed to lower provider, can have FI_MORE
- * @param[in]	lower_ep_type	lower endpoint type, can be either SHM_EP or EFA_EP
  * @return	On success, return 0
  * 		On failure, return a negative error code.
  */
-int rxr_ep_post_internal_rx_pkt(struct rxr_ep *ep, uint64_t flags, enum rxr_lower_ep_type lower_ep_type)
+int rxr_ep_post_internal_rx_pkt(struct rxr_ep *ep, uint64_t flags)
 {
 	void *desc;
 	struct rxr_pkt_entry *rx_pkt_entry = NULL;
@@ -317,13 +316,11 @@ int rxr_ep_post_internal_rx_pkt(struct rxr_ep *ep, uint64_t flags, enum rxr_lowe
  *
  * @param[in]	ep		endpint
  * @param[in]	nrecv		number of receive buffers to post
- * @param[in]	lower_ep_type	device type, can be SHM_EP or EFA_EP
  * @return	On success, return 0
  * 		On failure, return negative libfabric error code
  */
 static inline
-ssize_t rxr_ep_bulk_post_internal_rx_pkts(struct rxr_ep *ep, int nrecv,
-					  enum rxr_lower_ep_type lower_ep_type)
+ssize_t rxr_ep_bulk_post_internal_rx_pkts(struct rxr_ep *ep, int nrecv)
 {
 	int i;
 	ssize_t err;
@@ -334,7 +331,7 @@ ssize_t rxr_ep_bulk_post_internal_rx_pkts(struct rxr_ep *ep, int nrecv,
 		if (i == nrecv - 1)
 			flags = 0;
 
-		err = rxr_ep_post_internal_rx_pkt(ep, flags, lower_ep_type);
+		err = rxr_ep_post_internal_rx_pkt(ep, flags);
 		if (OFI_UNLIKELY(err))
 			return err;
 	}
@@ -1561,7 +1558,7 @@ void rxr_ep_progress_post_internal_rx_pkts(struct rxr_ep *ep)
 		}
 	}
 
-	err = rxr_ep_bulk_post_internal_rx_pkts(ep, ep->efa_rx_pkts_to_post, EFA_EP);
+	err = rxr_ep_bulk_post_internal_rx_pkts(ep, ep->efa_rx_pkts_to_post);
 	if (err)
 		goto err_exit;
 
@@ -1784,7 +1781,7 @@ static inline void rdm_ep_poll_ibv_cq_ex(struct rxr_ep *ep, size_t cqe_to_proces
 
 			pkt_entry->pkt_size = ibv_wc_read_byte_len(ep->ibv_cq_ex);
 			assert(pkt_entry->pkt_size > 0);
-			rxr_pkt_handle_recv_completion(ep, pkt_entry, EFA_EP);
+			rxr_pkt_handle_recv_completion(ep, pkt_entry);
 #if ENABLE_DEBUG
 			ep->recv_comps++;
 #endif

@@ -41,11 +41,6 @@ enum ibv_cq_ex_type {
 	EFADV_CQ
 };
 
-enum rxr_lower_ep_type {
-	EFA_EP = 1,
-	SHM_EP,
-};
-
 /** @brief Information of a queued copy.
  *
  * This struct is used when receiving buffer is on device.
