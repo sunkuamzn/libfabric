@@ -71,7 +71,7 @@
 #include "sm2_common.h"
 #include <stdint.h>
 
-#define SM2_FIFO_FREE -3
+#define SM2_FIFO_FREE (-3)
 
 struct sm2_fifo {
 	long int head;
