@@ -22,7 +22,7 @@
  * $HEADER$
  */
 /*
- * This code was based off of OMPI, and heavily modified for libfabric
+ * This code was based off of Open MPI, and heavily modified for libfabric
  * https://github.com/open-mpi/ompi
  *
  * Copyright (c) 2023 Amazon.com, Inc. or its affiliates. All rights reserved.
