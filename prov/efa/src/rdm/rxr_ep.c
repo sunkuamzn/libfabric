@@ -467,13 +467,6 @@ static void rxr_ep_free_res(struct rxr_ep *rxr_ep)
 		rxr_pkt_entry_release_rx(rxr_ep, pkt_entry);
 	}
 
-	if (rxr_ep->shm_ep) {
-		dlist_foreach_safe(&rxr_ep->rx_posted_buf_shm_list, entry, tmp) {
-			pkt_entry = container_of(entry, struct rxr_pkt_entry, dbg_entry);
-			rxr_pkt_entry_release_rx(rxr_ep, pkt_entry);
-		}
-	}
-
 	dlist_foreach_safe(&rxr_ep->rx_pkt_list, entry, tmp) {
 		pkt_entry = container_of(entry, struct rxr_pkt_entry, dbg_entry);
 		EFA_WARN(FI_LOG_EP_CTRL,

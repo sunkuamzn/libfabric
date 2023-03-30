@@ -160,8 +160,6 @@ struct rxr_ep {
 	struct dlist_entry rx_unexp_tagged_list;
 	/* list of pre-posted recv buffers */
 	struct dlist_entry rx_posted_buf_list;
-	/* list of pre-posted recv buffers for shm */
-	struct dlist_entry rx_posted_buf_shm_list;
 	/* op entries with queued rnr packets */
 	struct dlist_entry op_entry_queued_rnr_list;
 	/* op entries with queued ctrl packets */
