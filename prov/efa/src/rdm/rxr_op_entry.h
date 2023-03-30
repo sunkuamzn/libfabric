@@ -168,7 +168,6 @@ struct rxr_op_entry {
 #endif
 
 	size_t efa_outstanding_tx_ops;
-	size_t shm_outstanding_tx_ops;
 
 	/*
 	 * A list of rx_entries tracking FI_MULTI_RECV buffers. An rx_entry of

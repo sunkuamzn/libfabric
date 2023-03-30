@@ -186,7 +186,6 @@ struct rxr_op_entry *rxr_ep_alloc_rx_entry(struct rxr_ep *ep, fi_addr_t addr, ui
 	rx_entry->bytes_received_via_mulreq = 0;
 	rx_entry->cuda_copy_method = RXR_CUDA_COPY_UNSPEC;
 	rx_entry->efa_outstanding_tx_ops = 0;
-	rx_entry->shm_outstanding_tx_ops = 0;
 	rx_entry->op = op;
 
 	rx_entry->peer_rx_entry.addr = addr;
@@ -561,8 +560,7 @@ bool rxr_ep_has_unfinished_send(struct rxr_ep *rxr_ep)
 {
 	return !dlist_empty(&rxr_ep->op_entry_queued_rnr_list) ||
 	       !dlist_empty(&rxr_ep->op_entry_queued_ctrl_list) ||
-	       (rxr_ep->efa_outstanding_tx_ops > 0) ||
-	       (rxr_ep->shm_outstanding_tx_ops > 0);
+	       (rxr_ep->efa_outstanding_tx_ops > 0);
 }
 
 /*
@@ -2375,7 +2373,6 @@ int rxr_endpoint(struct fid_domain *domain, struct fi_info *info,
 
 #if ENABLE_DEBUG
 	rxr_ep->efa_total_posted_tx_ops = 0;
-	rxr_ep->shm_total_posted_tx_ops = 0;
 	rxr_ep->send_comps = 0;
 	rxr_ep->failed_send_comps = 0;
 	rxr_ep->recv_comps = 0;
@@ -2386,7 +2383,6 @@ int rxr_endpoint(struct fid_domain *domain, struct fi_info *info,
 	rxr_ep->efa_rx_pkts_posted = 0;
 	rxr_ep->efa_rx_pkts_to_post = 0;
 	rxr_ep->efa_outstanding_tx_ops = 0;
-	rxr_ep->shm_outstanding_tx_ops = 0;
 
 	assert(!rxr_ep->ibv_cq_ex);
 
@@ -2494,31 +2490,19 @@ void rxr_ep_record_tx_op_submitted(struct rxr_ep *ep, struct rxr_pkt_entry *pkt_
 	 */
 	peer = rxr_ep_get_peer(ep, pkt_entry->addr);
 	if (peer)
-		dlist_insert_tail(&pkt_entry->entry, &peer->outstanding_tx_pkts);
+		dlist_insert_tail(&pkt_entry->entry,
+				  &peer->outstanding_tx_pkts);
 
-	if (pkt_entry->alloc_type == RXR_PKT_FROM_EFA_TX_POOL) {
-		ep->efa_outstanding_tx_ops++;
-		if (peer)
-			peer->efa_outstanding_tx_ops++;
+	assert(pkt_entry->alloc_type == RXR_PKT_FROM_EFA_TX_POOL);
+	ep->efa_outstanding_tx_ops++;
+	if (peer)
+		peer->efa_outstanding_tx_ops++;
 
-		if (op_entry)
-			op_entry->efa_outstanding_tx_ops++;
+	if (op_entry)
+		op_entry->efa_outstanding_tx_ops++;
 #if ENABLE_DEBUG
-		ep->efa_total_posted_tx_ops++;
+	ep->efa_total_posted_tx_ops++;
 #endif
-	} else {
-		assert(pkt_entry->alloc_type == RXR_PKT_FROM_SHM_TX_POOL);
-		ep->shm_outstanding_tx_ops++;
-		if (peer)
-			peer->shm_outstanding_tx_ops++;
-
-		if (op_entry)
-			op_entry->shm_outstanding_tx_ops++;
-#if ENABLE_DEBUG
-		ep->shm_total_posted_tx_ops++;
-#endif
-	}
-
 }
 
 /**
@@ -2573,22 +2557,13 @@ void rxr_ep_record_tx_op_completed(struct rxr_ep *ep, struct rxr_pkt_entry *pkt_
 	if (peer)
 		dlist_remove(&pkt_entry->entry);
 
-	if (pkt_entry->alloc_type == RXR_PKT_FROM_EFA_TX_POOL) {
-		ep->efa_outstanding_tx_ops--;
-		if (peer)
-			peer->efa_outstanding_tx_ops--;
+	assert(pkt_entry->alloc_type == RXR_PKT_FROM_SHM_TX_POOL);
+	ep->efa_outstanding_tx_ops--;
+	if (peer)
+		peer->efa_outstanding_tx_ops--;
 
-		if (op_entry)
-			op_entry->efa_outstanding_tx_ops--;
-	} else {
-		assert(pkt_entry->alloc_type == RXR_PKT_FROM_SHM_TX_POOL);
-		ep->shm_outstanding_tx_ops--;
-		if (peer)
-			peer->shm_outstanding_tx_ops--;
-
-		if (op_entry)
-			op_entry->shm_outstanding_tx_ops--;
-	}
+	if (op_entry)
+		op_entry->efa_outstanding_tx_ops--;
 }
 
 /**

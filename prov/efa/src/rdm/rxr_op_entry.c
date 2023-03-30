@@ -66,7 +66,6 @@ void rxr_tx_entry_construct(struct rxr_op_entry *tx_entry,
 	tx_entry->iov_count = msg->iov_count;
 	tx_entry->msg_id = 0;
 	tx_entry->efa_outstanding_tx_ops = 0;
-	tx_entry->shm_outstanding_tx_ops = 0;
 	dlist_init(&tx_entry->queued_pkts);
 
 	memcpy(tx_entry->iov, msg->msg_iov, sizeof(struct iovec) * msg->iov_count);

@@ -199,7 +199,6 @@ struct rxr_ep {
 	struct dlist_entry tx_pkt_list;
 
 	size_t efa_total_posted_tx_ops;
-	size_t shm_total_posted_tx_ops;
 	size_t send_comps;
 	size_t failed_send_comps;
 	size_t recv_comps;
@@ -229,8 +228,6 @@ struct rxr_ep {
 
 	/* number of outstanding tx ops on efa device */
 	size_t efa_outstanding_tx_ops;
-	/* number of outstanding tx ops on shm */
-	size_t shm_outstanding_tx_ops;
 
 	struct rxr_queued_copy queued_copy_vec[RXR_EP_MAX_QUEUED_COPY];
 	int queued_copy_num;
