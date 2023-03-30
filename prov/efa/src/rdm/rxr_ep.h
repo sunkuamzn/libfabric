@@ -128,13 +128,6 @@ struct rxr_ep {
 	struct rxr_pkt_pool *efa_tx_pkt_pool;
 	struct rxr_pkt_pool *efa_rx_pkt_pool;
 
-	/*
-	 * buffer pool for send & recv for shm as mtu size is different from
-	 * the one of efa, and do not require local memory registration
-	 */
-	struct rxr_pkt_pool *shm_tx_pkt_pool;
-	struct rxr_pkt_pool *shm_rx_pkt_pool;
-
 	/* staging area for unexpected and out-of-order packets */
 	struct rxr_pkt_pool *rx_unexp_pkt_pool;
 	struct rxr_pkt_pool *rx_ooo_pkt_pool;

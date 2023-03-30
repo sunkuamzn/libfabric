@@ -538,12 +538,6 @@ static void rxr_ep_free_res(struct rxr_ep *rxr_ep)
 
 	if (rxr_ep->efa_tx_pkt_pool)
 		rxr_pkt_pool_destroy(rxr_ep->efa_tx_pkt_pool);
-
-	if (rxr_ep->shm_rx_pkt_pool)
-		rxr_pkt_pool_destroy(rxr_ep->shm_rx_pkt_pool);
-
-	if (rxr_ep->shm_tx_pkt_pool)
-		rxr_pkt_pool_destroy(rxr_ep->shm_tx_pkt_pool);
 }
 
 /*
@@ -1453,29 +1447,6 @@ int rxr_ep_init(struct rxr_ep *ep)
 	if (ret)
 		goto err_free;
 
-	/* create pkt pool for shm */
-	if (ep->shm_ep) {
-		ret = rxr_pkt_pool_create(
-			ep,
-			RXR_PKT_FROM_SHM_TX_POOL,
-			rxr_ep_domain(ep)->shm_info->tx_attr->size,
-			rxr_ep_domain(ep)->shm_info->tx_attr->size, /* max count */
-			&ep->shm_tx_pkt_pool);
-		if (ret)
-			goto err_free;
-
-		ret = rxr_pkt_pool_create(
-			ep,
-			RXR_PKT_FROM_SHM_RX_POOL,
-			rxr_ep_domain(ep)->shm_info->tx_attr->size,
-			rxr_ep_domain(ep)->shm_info->tx_attr->size, /* max count */
-			&ep->shm_rx_pkt_pool);
-		if (ret)
-			goto err_free;
-
-		dlist_init(&ep->rx_posted_buf_shm_list);
-	}
-
 	/* Initialize entry list */
 	dlist_init(&ep->rx_list);
 	dlist_init(&ep->rx_unexp_list);
@@ -1502,12 +1473,6 @@ int rxr_ep_init(struct rxr_ep *ep)
 	return 0;
 
 err_free:
-	if (ep->shm_tx_pkt_pool)
-		rxr_pkt_pool_destroy(ep->shm_tx_pkt_pool);
-
-	if (ep->shm_rx_pkt_pool)
-		rxr_pkt_pool_destroy(ep->shm_rx_pkt_pool);
-
 	if (ep->rx_atomrsp_pool)
 		ofi_bufpool_destroy(ep->rx_atomrsp_pool);
 
@@ -1554,7 +1519,6 @@ struct fi_ops_cm rxr_ep_cm = {
 /*
  * @brief explicitly allocate a chunk of memory for 6 pools on RX side:
  *     efa's receive packet pool (efa_rx_pkt_pool)
- *     shm's receive packet pool (shm_rx_pkt_pool)
  *     unexpected packet pool (rx_unexp_pkt_pool),
  *     out-of-order packet pool (rx_ooo_pkt_pool), and
  *     local read-copy packet pool (rx_readcopy_pkt_pool).
@@ -1578,16 +1542,6 @@ int rxr_ep_grow_rx_pools(struct rxr_ep *ep)
 			"cannot allocate memory for EFA's RX packet pool. error: %s\n",
 			strerror(-err));
 		return err;
-	}
-
-	if (ep->shm_rx_pkt_pool) {
-		err = rxr_pkt_pool_grow(ep->shm_rx_pkt_pool);
-		if (err) {
-			EFA_WARN(FI_LOG_CQ,
-				"cannot allocate memory for SHM's RX packet pool. error: %s\n",
-				strerror(-err));
-			return err;
-		}
 	}
 
 	if (ep->rx_unexp_pkt_pool) {
@@ -2557,7 +2511,7 @@ void rxr_ep_record_tx_op_completed(struct rxr_ep *ep, struct rxr_pkt_entry *pkt_
 	if (peer)
 		dlist_remove(&pkt_entry->entry);
 
-	assert(pkt_entry->alloc_type == RXR_PKT_FROM_SHM_TX_POOL);
+	assert(pkt_entry->alloc_type == RXR_PKT_FROM_EFA_TX_POOL);
 	ep->efa_outstanding_tx_ops--;
 	if (peer)
 		peer->efa_outstanding_tx_ops--;

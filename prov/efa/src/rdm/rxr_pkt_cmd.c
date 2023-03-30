@@ -551,8 +551,7 @@ void rxr_pkt_handle_send_error(struct rxr_ep *ep, struct rxr_pkt_entry *pkt_entr
 	struct rxr_op_entry *tx_entry;
 	struct rxr_op_entry *rx_entry;
 
-	assert(pkt_entry->alloc_type == RXR_PKT_FROM_EFA_TX_POOL ||
-	       pkt_entry->alloc_type == RXR_PKT_FROM_SHM_TX_POOL);
+	assert(pkt_entry->alloc_type == RXR_PKT_FROM_EFA_TX_POOL);
 
 	EFA_DBG(FI_LOG_CQ, "Packet send error: %s (%d)\n",
 	        efa_strerror(prov_errno, NULL), prov_errno);

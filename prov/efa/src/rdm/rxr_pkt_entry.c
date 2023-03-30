@@ -187,8 +187,6 @@ void rxr_pkt_entry_release_rx(struct rxr_ep *ep,
 
 	if (pkt_entry->alloc_type == RXR_PKT_FROM_EFA_RX_POOL) {
 		ep->efa_rx_pkts_to_post++;
-	} else if (pkt_entry->alloc_type == RXR_PKT_FROM_SHM_RX_POOL) {
-		ep->shm_rx_pkts_to_post++;
 	} else if (pkt_entry->alloc_type == RXR_PKT_FROM_READ_COPY_POOL) {
 		assert(ep->rx_readcopy_pkt_pool_used > 0);
 		ep->rx_readcopy_pkt_pool_used--;
@@ -249,8 +247,7 @@ struct rxr_pkt_entry *rxr_pkt_get_unexp(struct rxr_ep *ep,
 
 	type = (*pkt_entry_ptr)->alloc_type;
 
-	if (rxr_env.rx_copy_unexp && (type == RXR_PKT_FROM_EFA_RX_POOL ||
-				      type == RXR_PKT_FROM_SHM_RX_POOL)) {
+	if (rxr_env.rx_copy_unexp && (type == RXR_PKT_FROM_EFA_RX_POOL)) {
 		unexp_pkt_entry = rxr_pkt_entry_clone(ep, ep->rx_unexp_pkt_pool,
 						      RXR_PKT_FROM_UNEXP_POOL,
 						      *pkt_entry_ptr);
@@ -386,7 +383,7 @@ ssize_t rxr_pkt_entry_send(struct rxr_ep *ep, struct rxr_pkt_entry *pkt_entry,
 		send->iov_count = 1;
 		send->iov[0].iov_base = pkt_entry->wiredata;
 		send->iov[0].iov_len = pkt_entry->pkt_size;
-		send->desc[0] = (pkt_entry->alloc_type == RXR_PKT_FROM_SHM_TX_POOL) ? NULL : pkt_entry->mr;
+		send->desc[0] = pkt_entry->mr;
 	}
 
 #if ENABLE_DEBUG
