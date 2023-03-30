@@ -201,15 +201,6 @@ struct rxr_ep {
 	struct dlist_entry tx_entry_list;
 
 	/*
-	 * number of posted RX packets for shm
-	 */
-	size_t shm_rx_pkts_posted;
-	/*
-	 * number of RX packets to be posted by progress engine for shm.
-	 * It exists because posting RX packets by bulk is more efficient.
-	 */
-	size_t shm_rx_pkts_to_post;
-	/*
 	 * number of posted RX packets for EFA device
 	 */
 	size_t efa_rx_pkts_posted;

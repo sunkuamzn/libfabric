@@ -1601,7 +1601,7 @@ int rxr_ep_grow_rx_pools(struct rxr_ep *ep)
  * right away.
  *
  * Instead, we increase counter
- *      ep->efa/shm_rx_pkts_to_post
+ *      ep->efa_rx_pkts_to_post
  * by one.
  *
  * Later, progress engine calls this function to
@@ -1675,11 +1675,6 @@ void rxr_ep_progress_post_internal_rx_pkts(struct rxr_ep *ep)
 				goto err_exit;
 
 			ep->efa_rx_pkts_to_post = rxr_get_rx_pool_chunk_cnt(ep);
-
-			if (ep->shm_ep) {
-				assert(ep->shm_rx_pkts_posted == 0 && ep->shm_rx_pkts_to_post == 0);
-				ep->shm_rx_pkts_to_post = rxr_ep_domain(ep)->shm_info->rx_attr->size;
-			}
 		}
 	}
 
@@ -2332,8 +2327,6 @@ int rxr_endpoint(struct fid_domain *domain, struct fi_info *info,
 	rxr_ep->recv_comps = 0;
 #endif
 
-	rxr_ep->shm_rx_pkts_posted = 0;
-	rxr_ep->shm_rx_pkts_to_post = 0;
 	rxr_ep->efa_rx_pkts_posted = 0;
 	rxr_ep->efa_rx_pkts_to_post = 0;
 	rxr_ep->efa_outstanding_tx_ops = 0;
