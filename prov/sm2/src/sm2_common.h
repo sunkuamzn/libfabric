@@ -100,7 +100,8 @@ struct sm2_protocol_hdr {
 	int64_t id;
 	uint32_t op;
 	uint16_t op_src;
-	uint16_t op_flags;
+	uint32_t op_flags;
+	uint64_t context;
 
 	uint64_t size;
 	uint64_t src_data;
