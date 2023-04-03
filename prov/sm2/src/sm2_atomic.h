@@ -60,23 +60,15 @@
  * SOFTWARE.
  */
 
-
-#include <stdatomic.h>
 #include <stdbool.h>
+#include "config.h"
 
-
-/* TODO: Switch to using libfabric atomics, ofi_atom */
-
-#define atomic_swap_ptr(addr, value) \
-	atomic_exchange_explicit((_Atomic unsigned long *) addr, value, memory_order_relaxed)
-
-#define atomic_compare_exchange(x, y, z) \
-	__atomic_compare_exchange_n((int64_t *) (x), (int64_t *) (y), (int64_t)(z), \
-								 false, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED)
+#ifdef HAVE_ATOMICS
+#include <stdatomic.h>
 
 static inline void atomic_mb(void)
 {
-    atomic_thread_fence(memory_order_seq_cst);
+	atomic_thread_fence(memory_order_seq_cst);
 }
 
 static inline void atomic_rmb(void)
@@ -96,5 +88,45 @@ static inline void atomic_rmb(void)
 
 static inline void atomic_wmb(void)
 {
-    atomic_thread_fence(memory_order_release);
+	atomic_thread_fence(memory_order_release);
 }
+
+#define atomic_compare_exchange(addr, compare, value)                                   \
+    atomic_compare_exchange_strong_explicit(addr, compare, value, memory_order_acquire, \
+                                            memory_order_relaxed)
+
+#define atomic_swap_ptr(addr, value)                                                	\
+	atomic_exchange_explicit((_Atomic unsigned long *)addr, value,						\
+							memory_order_relaxed)
+
+#elif defined(HAVE_BUILTIN_MM_ATOMICS)
+
+static inline void atomic_mb(void)
+{
+	__atomic_thread_fence(__ATOMIC_SEQ_CST);
+}
+
+static inline void atomic_rmb(void)
+{
+	__atomic_thread_fence(__ATOMIC_ACQUIRE);
+}
+
+static inline void atomic_wmb(void)
+{
+	__atomic_thread_fence(__ATOMIC_RELEASE);
+}
+
+#define atomic_compare_exchange(x, y, z)                                                 \
+__atomic_compare_exchange_n((int64_t *)(x), (int64_t *)(y), (int64_t)(z), false,         \
+			    __ATOMIC_ACQUIRE, __ATOMIC_RELAXED)
+
+static inline long int atomic_swap_ptr(long int *addr, long int value)
+{
+	long int oldval;
+	__atomic_exchange(addr, &value, &oldval, __ATOMIC_RELAXED);
+	return oldval;
+}
+
+#else
+#error "No atomics support found for SM2."
+#endif
