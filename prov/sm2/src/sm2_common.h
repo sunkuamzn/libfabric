@@ -73,6 +73,8 @@ extern "C" {
 #define SM2_COORDINATION_FILE "/dev/shm/fi_sm2_mmaps"
 #define SM2_COORDINATION_DIR "/dev/shm"
 
+#define SM2_COORDINATOR_MAX_TRIES 1000
+
 extern struct dlist_entry sm2_ep_name_list;
 extern pthread_mutex_t sm2_ep_list_lock;
 

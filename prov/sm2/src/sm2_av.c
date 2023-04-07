@@ -237,7 +237,7 @@ int sm2_av_open(struct fid_domain *domain, struct fi_av_attr *attr,
 	sm2_coordinator_unlock(&sm2_av->sm2_mmap);
 
 	header = (void*) sm2_av->sm2_mmap.base;
-	sm2_av->sm2_aux = calloc( header->ep_enumerations_max, sizeof(struct sm2_private_aux));
+	sm2_av->sm2_aux = calloc(header->ep_enumerations_max, sizeof(struct sm2_private_aux));
 
 	if (ret)
 		goto close;
@@ -250,4 +250,3 @@ out:
 	free(sm2_av);
 	return ret;
 }
-

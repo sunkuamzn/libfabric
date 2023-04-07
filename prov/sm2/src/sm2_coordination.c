@@ -20,22 +20,29 @@ static void sm2_coordinator_attempt_shm_file_shrink(struct sm2_mmap *map);
  * @param[in] fd
  * @param[out] map
 */
-void* sm2_mmap_map(int fd, struct sm2_mmap *map )
+void* sm2_mmap_map(int fd, struct sm2_mmap *map)
 {
 	struct stat st;
 	int err;
+	char *stage;
 
+	stage = "fstat of sm2_mmaps file";
 	err = fstat(fd, &st);
 	if (OFI_UNLIKELY(err)) goto out;
+
+	stage = "mmap of sm2_mmaps file";
 	map->base = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	if (OFI_UNLIKELY(map->base == MAP_FAILED)) goto out;
 	map->fd = fd;
 	map->size = st.st_size;
-out:
-	if (OFI_UNLIKELY(err)) {
-		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL,
-			"Failed syscall during sm2_mmap_map()\n");
-	}
 	return map->base;
+
+out:
+	perror(stage);
+	FI_WARN(&sm2_prov, FI_LOG_EP_CTRL,
+		"Failed syscall during sm2_mmap_map(). st.st_size=%ld\n", st.st_size);
+	map->base = NULL;
+	return NULL;
 }
 
 /**
@@ -52,15 +59,19 @@ void* sm2_mmap_remap(struct sm2_mmap *map, size_t at_least)
 {
 	struct stat st;
 	int err;
+	char *stage;
 
 	/* return quickly if no need to check the file. */
+	assert(at_least > 0);
 	if (map->size >= at_least) return map->base;
 
+	stage = "fstat of sm2_mmaps file";
 	err = fstat(map->fd, &st);
 	if (OFI_UNLIKELY(err)) goto out;
 
 	if (st.st_size < at_least) {
 		/* we need to grow the file. */
+		stage = "ftruncate of sm2_mmaps file";
 		err = ftruncate(map->fd, at_least);
 		if (OFI_UNLIKELY(err)) goto out;
 	} else if (st.st_size >= map->size) {
@@ -76,9 +87,18 @@ void* sm2_mmap_remap(struct sm2_mmap *map, size_t at_least)
 	}
 	if (map->size != at_least) {
 		/* now un-map and re-map the file */
+		stage = "funmap of sm2_mmaps file";
 		err = munmap( map->base, map->size);
 		if (OFI_UNLIKELY(err)) goto out;
+
+		stage = "fmap of sm2_mmaps file";
 		map->base = mmap(0, at_least, PROT_READ | PROT_WRITE, MAP_SHARED, map->fd, 0);
+		if (OFI_UNLIKELY(map->base == MAP_FAILED)) {
+			perror("failed to remap when increasing the map size in sm2_mmap_remap");
+			FI_WARN(&sm2_prov, FI_LOG_EP_CTRL,
+				"Failed syscall during sm2_mmap_map(). st.st_size=%ld\n at_least=%ld", st.st_size, at_least);
+			abort();
+		}
 		map->size = at_least;
 	}
 
@@ -86,6 +106,8 @@ out:
 	if (OFI_UNLIKELY(err)) {
 		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL,
 			"Failed syscall during sm2_mmap_remap()\n");
+		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL, "%s : %s\n", stage, strerror(errno));
+		FI_WARN(&sm2_prov, FI_LOG_EP_CTRL, "at_least: %" PRIu64 "\n", at_least);
 	}
 	return map->base;
 }
@@ -129,7 +151,7 @@ ssize_t sm2_coordinator_open_and_lock(struct sm2_mmap *map_shared)
 	int fd, common_fd, err, tries, pid;
 
 	pid = getpid();
-	sprintf(template,"%s/fi_sm2_pid%d_XXXXXX",SM2_COORDINATION_DIR,pid);
+	sprintf(template,"%s/fi_sm2_pid%d_XXXXXX", SM2_COORDINATION_DIR, pid);
 
 	char lock_status;
 
@@ -149,7 +171,7 @@ ssize_t sm2_coordinator_open_and_lock(struct sm2_mmap *map_shared)
 	   this lock is uncontested */
 	pthread_mutex_lock(&header->write_lock);
 
-	ofi_atomic_initialize32( &header->pid_lock_hint, pid );
+	ofi_atomic_initialize32(&header->pid_lock_hint, pid);
 	header->file_version = 1;
 	header->ep_region_size = 16777216; // TODO: base on sm2_calculate_size, and
 	header->ep_enumerations_max = 4096; // TODO: base on FI_UNIVERSE size times 10 or 20 (many distinct universes)
@@ -177,7 +199,7 @@ ssize_t sm2_coordinator_open_and_lock(struct sm2_mmap *map_shared)
 	atomic_mb();
 
 	lock_status = 'F'; /* failed */
-	tries = 1000;
+	tries = SM2_COORDINATOR_MAX_TRIES;
 	do {
 		/* create a hardlink to our file with the common name.
 		   - on success: we hold the lock to a newly
@@ -192,18 +214,24 @@ ssize_t sm2_coordinator_open_and_lock(struct sm2_mmap *map_shared)
 		common_fd = open(SM2_COORDINATION_FILE, O_RDWR);
 		if (common_fd > 0) {
 			int pid_holding = 0;
+
 			/* we've opened some existing file */
 			tmp_header = sm2_mmap_map(common_fd, map_shared);
+			if (tmp_header == NULL) {
+				close(common_fd);
+				continue;
+			}
+
 			assert(map_shared->size >= sizeof(struct sm2_coord_file_header));
 			err = pthread_mutex_trylock(&tmp_header->write_lock);
 			if (err == 0) {
 				/* lock acquired! */
-				ofi_atomic_set32( &tmp_header->pid_lock_hint, pid );
+				ofi_atomic_set32(&tmp_header->pid_lock_hint, pid);
 
 				lock_status = 'S'; /* shared */
 				break;
 			}
-			pid_holding = ofi_atomic_get32( &tmp_header->pid_lock_hint );
+			pid_holding = ofi_atomic_get32(&tmp_header->pid_lock_hint);
 
 			/* check if pid_holding is alive by issuing it a
 			   NULL signal (0).  This will not interrupt
@@ -239,7 +267,7 @@ ssize_t sm2_coordinator_open_and_lock(struct sm2_mmap *map_shared)
 	case 'O':
 	/* We are using the memory we initialized.  Duplicate it and
 	   leave the map open. */
-		memcpy( map_shared, &map_ours, sizeof(struct sm2_mmap));
+		memcpy(map_shared, &map_ours, sizeof(struct sm2_mmap));
 		break;
 	default:
 		/* catch cosmic ray bit-flips */
@@ -247,7 +275,6 @@ ssize_t sm2_coordinator_open_and_lock(struct sm2_mmap *map_shared)
 			"Error during sm2_coordinator_open_and_lock, unknown lock state\n");
 		abort();
 	}
-
 
 	/* now that we have the lock, we can remove our temp file. */
 	unlink(template);
@@ -495,6 +522,7 @@ ssize_t sm2_coordinator_unlock(struct sm2_mmap *map) {
 */
 void* sm2_coordinator_extend_for_entry(struct sm2_mmap *map, int last_valid_entry) {
 	size_t new_size;
+	assert(last_valid_entry <= SM2_MAX_PEERS);
 	new_size = (char*)sm2_mmap_ep_region(map, last_valid_entry+1) - map->base;
 	return sm2_mmap_remap(map, new_size);
 }
@@ -519,6 +547,12 @@ static void* sm2_mmap_shrink_to_size(struct sm2_mmap *map, size_t shrink_size)
 		err = munmap( map->base, map->size);
 		if (OFI_UNLIKELY(err)) goto out;
 		map->base = mmap(0, shrink_size, PROT_READ | PROT_WRITE, MAP_SHARED, map->fd, 0);
+		if (OFI_UNLIKELY(map->base == MAP_FAILED)) {
+			perror("failed to remap when decreasing the map size in sm2_mmap_shrink_to_size");
+			FI_WARN(&sm2_prov, FI_LOG_EP_CTRL,
+				"Failed syscall during sm2_mmap_map(). st.st_size=%ld\n shrink_size=%ld", st.st_size, shrink_size);
+			map->base = NULL;
+		}
 		map->size = shrink_size;
 	}
 
