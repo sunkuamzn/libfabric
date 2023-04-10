@@ -186,7 +186,7 @@ struct sm2_coord_file_header {
 	int             file_version;
         pthread_mutex_t write_lock;
         ofi_atomic32_t	pid_lock_hint;
-        int             ep_region_size;
+        uint64_t        ep_region_size;
         int             ep_enumerations_max;
 
         ptrdiff_t       ep_enumerations_offset; /* struct sm2_ep_allocation_entry */
