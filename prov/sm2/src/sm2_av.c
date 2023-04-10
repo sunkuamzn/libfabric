@@ -70,20 +70,19 @@ static int sm2_av_insert(struct fid_av *av_fid, const void *addr, size_t count,
 	util_av = container_of(av_fid, struct util_av, av_fid);
 	sm2_av = container_of(util_av, struct sm2_av, util_av);
 
-	for (i = 0; i < count; i++, addr = (char *) addr + strlen(addr) + 1) {
-		FI_INFO(&sm2_prov, FI_LOG_AV, "%s\n", (const char *) addr);
+	for (i = 0; i < count; i++, addr = (char *)addr + strlen(addr) + 1) {
+		FI_INFO(&sm2_prov, FI_LOG_AV, "%s\n", (const char *)addr);
 
 		util_addr = FI_ADDR_NOTAVAIL;
 		if (sm2_av->used < SM2_MAX_PEERS) {
-			ret = sm2_map_add(&sm2_prov, sm2_av->sm2_map,
-					  addr, &shm_id);
+			ret = sm2_map_add(&sm2_prov, sm2_av->sm2_map, addr, &shm_id);
 			if (!ret) {
 				ofi_mutex_lock(&util_av->lock);
-				ret = ofi_av_insert_addr(util_av, &shm_id,
-							 &util_addr);
+				ret = ofi_av_insert_addr(util_av, &shm_id, &util_addr);
 				ofi_mutex_unlock(&util_av->lock);
 			}
-		} else {
+		}
+		else {
 			FI_WARN(&sm2_prov, FI_LOG_AV,
 				"AV insert failed. The maximum number of AV "
 				"entries shm supported has been reached.\n");
@@ -100,12 +99,14 @@ static int sm2_av_insert(struct fid_av *av_fid, const void *addr, size_t count,
 			if (shm_id >= 0)
 				sm2_map_del(sm2_av->sm2_map, shm_id);
 			continue;
-		} else {
+		}
+		else {
 			assert(shm_id >= 0 && shm_id < SM2_MAX_PEERS);
 			if (flags & FI_AV_USER_ID) {
 				assert(fi_addr);
 				sm2_av->sm2_map->peers[shm_id].fiaddr = fi_addr[i];
-			} else {
+			}
+			else {
 				sm2_av->sm2_map->peers[shm_id].fiaddr = util_addr;
 			}
 			succ_count++;
@@ -114,12 +115,13 @@ static int sm2_av_insert(struct fid_av *av_fid, const void *addr, size_t count,
 
 		assert(sm2_av->sm2_map->num_peers > 0);
 
-		dlist_foreach(&util_av->ep_list, av_entry) {
+		dlist_foreach(&util_av->ep_list, av_entry)
+		{
 			util_ep = container_of(av_entry, struct util_ep, av_entry);
 			sm2_ep = container_of(util_ep, struct sm2_ep, util_ep);
 			sm2_map_to_endpoint(sm2_ep->region, shm_id);
 			sm2_ep->region->max_sar_buf_per_peer =
-				SM2_MAX_PEERS / sm2_av->sm2_map->num_peers;
+			    SM2_MAX_PEERS / sm2_av->sm2_map->num_peers;
 		}
 	}
 
@@ -156,17 +158,16 @@ static int sm2_av_remove(struct fid_av *av_fid, fi_addr_t *fi_addr, size_t count
 		}
 
 		sm2_map_del(sm2_av->sm2_map, id);
-		dlist_foreach(&util_av->ep_list, av_entry) {
+		dlist_foreach(&util_av->ep_list, av_entry)
+		{
 			util_ep = container_of(av_entry, struct util_ep, av_entry);
 			sm2_ep = container_of(util_ep, struct sm2_ep, util_ep);
 			sm2_unmap_from_endpoint(sm2_ep->region, id);
 			if (sm2_av->sm2_map->num_peers > 0)
 				sm2_ep->region->max_sar_buf_per_peer =
-					SM2_MAX_PEERS /
-					sm2_av->sm2_map->num_peers;
+				    SM2_MAX_PEERS / sm2_av->sm2_map->num_peers;
 			else
-				sm2_ep->region->max_sar_buf_per_peer =
-					SM2_BUF_BATCH_MAX;
+				sm2_ep->region->max_sar_buf_per_peer = SM2_BUF_BATCH_MAX;
 		}
 		sm2_av->used--;
 	}
@@ -189,15 +190,15 @@ static int sm2_av_lookup(struct fid_av *av, fi_addr_t fi_addr, void *addr,
 	id = sm2_addr_lookup(util_av, fi_addr);
 	name = sm2_av->sm2_map->peers[id].peer.name;
 
-	strncpy((char *) addr, name, *addrlen);
+	strncpy((char *)addr, name, *addrlen);
 
-	((char *) addr)[MIN(*addrlen - 1, strlen(name))] = '\0';
+	((char *)addr)[MIN(*addrlen - 1, strlen(name))] = '\0';
 	*addrlen = strlen(name) + 1;
 	return 0;
 }
 
-static const char *sm2_av_straddr(struct fid_av *av, const void *addr,
-				  char *buf, size_t *len)
+static const char *sm2_av_straddr(struct fid_av *av, const void *addr, char *buf,
+				  size_t *len)
 {
 	/* the input address is a string format */
 	if (buf)
@@ -208,25 +209,25 @@ static const char *sm2_av_straddr(struct fid_av *av, const void *addr,
 }
 
 static struct fi_ops sm2_av_fi_ops = {
-	.size = sizeof(struct fi_ops),
-	.close = sm2_av_close,
-	.bind = ofi_av_bind,
-	.control = fi_no_control,
-	.ops_open = fi_no_ops_open,
+    .size = sizeof(struct fi_ops),
+    .close = sm2_av_close,
+    .bind = ofi_av_bind,
+    .control = fi_no_control,
+    .ops_open = fi_no_ops_open,
 };
 
 static struct fi_ops_av sm2_av_ops = {
-	.size = sizeof(struct fi_ops_av),
-	.insert = sm2_av_insert,
-	.insertsvc = fi_no_av_insertsvc,
-	.insertsym = fi_no_av_insertsym,
-	.remove = sm2_av_remove,
-	.lookup = sm2_av_lookup,
-	.straddr = sm2_av_straddr,
+    .size = sizeof(struct fi_ops_av),
+    .insert = sm2_av_insert,
+    .insertsvc = fi_no_av_insertsvc,
+    .insertsym = fi_no_av_insertsym,
+    .remove = sm2_av_remove,
+    .lookup = sm2_av_lookup,
+    .straddr = sm2_av_straddr,
 };
 
-int sm2_av_open(struct fid_domain *domain, struct fi_av_attr *attr,
-		struct fid_av **av, void *context)
+int sm2_av_open(struct fid_domain *domain, struct fi_av_attr *attr, struct fid_av **av,
+		void *context)
 {
 	struct util_domain *util_domain;
 	struct util_av_attr util_attr;
@@ -256,8 +257,8 @@ int sm2_av_open(struct fid_domain *domain, struct fi_av_attr *attr,
 	util_attr.context_len = 0;
 	util_attr.flags = 0;
 	if (attr->count > SM2_MAX_PEERS) {
-		FI_INFO(&sm2_prov, FI_LOG_AV,
-			"count %d exceeds max peers\n", (int) attr->count);
+		FI_INFO(&sm2_prov, FI_LOG_AV, "count %d exceeds max peers\n",
+			(int)attr->count);
 		ret = -FI_ENOSYS;
 		goto out;
 	}
@@ -271,9 +272,10 @@ int sm2_av_open(struct fid_domain *domain, struct fi_av_attr *attr,
 	(*av)->fid.ops = &sm2_av_fi_ops;
 	(*av)->ops = &sm2_av_ops;
 
-	ret = sm2_map_create(&sm2_prov, SM2_MAX_PEERS,
-			     util_domain->info_domain_caps & FI_HMEM ?
-			     SM2_FLAG_HMEM_ENABLED : 0, &sm2_av->sm2_map);
+	ret = sm2_map_create(
+	    &sm2_prov, SM2_MAX_PEERS,
+	    util_domain->info_domain_caps & FI_HMEM ? SM2_FLAG_HMEM_ENABLED : 0,
+	    &sm2_av->sm2_map);
 	if (ret)
 		goto close;
 
@@ -285,4 +287,3 @@ out:
 	free(sm2_av);
 	return ret;
 }
-
