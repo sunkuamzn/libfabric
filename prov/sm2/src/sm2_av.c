@@ -246,6 +246,11 @@ int sm2_av_open(struct fid_domain *domain, struct fi_av_attr *attr, struct fid_a
 	sm2_av->sm2_aux =
 	    calloc(header->ep_enumerations_max, sizeof(struct sm2_private_aux));
 
+	// Initialize all addresses to FI_ADDR_NOTAVAIL
+	for (int i = 0; i < header->ep_enumerations_max; i++) {
+		sm2_av->sm2_aux[i].cqfid = FI_ADDR_NOTAVAIL;
+	}
+
 	if (ret)
 		goto close;
 

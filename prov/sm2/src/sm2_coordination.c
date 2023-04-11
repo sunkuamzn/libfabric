@@ -591,7 +591,7 @@ ssize_t sm2_coordinator_unlock(struct sm2_mmap *map)
 void *sm2_coordinator_extend_for_entry(struct sm2_mmap *map, int last_valid_entry)
 {
 	size_t new_size;
-	assert(last_valid_entry <= SM2_COORDINATOR_MAX_UNIVERSE_SIZE);
+	assert(last_valid_entry < SM2_COORDINATOR_MAX_UNIVERSE_SIZE);
 	new_size = (char *)sm2_mmap_ep_region(map, last_valid_entry + 1) - map->base;
 	return sm2_mmap_remap(map, new_size);
 }

@@ -145,10 +145,14 @@ static int sm2_progress_recv_msg(struct sm2_ep *ep, struct sm2_free_queue_entry 
 {
 	struct fid_peer_srx *peer_srx = sm2_get_peer_srx(ep);
 	struct fi_peer_rx_entry *rx_entry;
+	struct sm2_av *sm2_av;
+	struct util_av *util_av;
 	fi_addr_t addr;
 	int ret;
 
-	addr = fqe->protocol_hdr.id;
+	util_av = ep->util_ep.av;
+	sm2_av = container_of(util_av, struct sm2_av, util_av);
+	addr = sm2_av->sm2_aux[fqe->protocol_hdr.id].cqfid;
 
 	if (fqe->protocol_hdr.op == ofi_op_tagged) {
 		ret = peer_srx->owner_ops->get_tag(peer_srx, addr, fqe->protocol_hdr.size,

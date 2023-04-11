@@ -158,13 +158,14 @@ int64_t sm2_verify_peer(struct sm2_ep *ep, fi_addr_t fi_addr)
 	};
 
 	sm2_av = container_of(ep->util_ep.av, struct sm2_av, util_av);
+	if (sm2_av->sm2_aux[id].cqfid == FI_ADDR_NOTAVAIL)
+		return -FI_EINVAL;
+
 	entries = sm2_mmap_entries(&sm2_av->sm2_mmap);
 
 	// TODO... should this be atomic?
 	if (OFI_UNLIKELY(entries[id].startup_ready == 0))
 		return -FI_EAGAIN;
-
-	sm2_coordinator_extend_for_entry(&sm2_av->sm2_mmap, id);
 
 	return id;
 }
