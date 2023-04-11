@@ -85,11 +85,11 @@ static inline void atomic_rmb(void)
 static inline void atomic_wmb(void) { atomic_thread_fence(memory_order_release); }
 
 #define atomic_compare_exchange(addr, compare, value)                                    \
-atomic_compare_exchange_strong_explicit(addr, compare, value, memory_order_acquire,      \
+atomic_compare_exchange_strong_explicit((_Atomic uintptr_t *)addr, compare, value, memory_order_acquire,      \
 					memory_order_relaxed)
 
 #define atomic_swap_ptr(addr, value)                                                     \
-atomic_exchange_explicit((_Atomic unsigned long *)addr, value, memory_order_relaxed)
+atomic_exchange_explicit((_Atomic uintptr_t *)addr, value, memory_order_relaxed)
 
 #elif defined(HAVE_BUILTIN_MM_ATOMICS)
 
@@ -100,7 +100,7 @@ static inline void atomic_rmb(void) { __atomic_thread_fence(__ATOMIC_ACQUIRE); }
 static inline void atomic_wmb(void) { __atomic_thread_fence(__ATOMIC_RELEASE); }
 
 #define atomic_compare_exchange(x, y, z)                                                 \
-__atomic_compare_exchange_n((int64_t *)(x), (int64_t *)(y), (int64_t)(z), false,         \
+__atomic_compare_exchange_n((uintptr_t *)(x), (int64_t *)(y), (int64_t)(z), false,         \
 			    __ATOMIC_ACQUIRE, __ATOMIC_RELAXED)
 
 static inline long int atomic_swap_ptr(long int *addr, long int value)
