@@ -82,6 +82,10 @@
 #define SM2_ATOMIC_INJECT_SIZE	    (SM2_INJECT_SIZE - sizeof(struct sm2_atomic_hdr))
 #define SM2_ATOMIC_COMP_INJECT_SIZE (SM2_ATOMIC_INJECT_SIZE / 2)
 
+/* Protocol flags for SM2 CMA protocol */
+#define FI_SM2_CMA_HOST_TO_DEV	   (1 << 1)
+#define FI_SM2_CMA_HOST_TO_DEV_ACK (1 << 2)
+
 extern struct fi_provider sm2_prov;
 extern struct fi_info sm2_info;
 extern struct util_prov sm2_util_prov;
@@ -158,6 +162,10 @@ struct sm2_atomic_entry {
 struct sm2_cma_data {
 	size_t iov_count;
 	struct iovec iov[SM2_IOV_LIMIT];
+
+	/* Used for IPC host to device protocol */
+	struct ipc_info ipc_info;
+	struct fi_peer_rx_entry *rx_entry;
 };
 
 struct sm2_ep_name {
