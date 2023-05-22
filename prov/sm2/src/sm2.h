@@ -115,6 +115,10 @@ sender will generate the completion entry when it receives such an xfer_entry.
  * send completion. */
 #define SM2_GENERATE_COMPLETION (1 << 2)
 
+/* Protocol flags for SM2 CMA protocol */
+#define SM2_CMA_HOST_TO_DEV	(1 << 3)
+#define SM2_CMA_HOST_TO_DEV_ACK (1 << 4)
+
 /*
  * 	next - fifo linked list next ptr
  * 		This is volatile for a reason, many things touch this
@@ -176,6 +180,10 @@ struct sm2_atomic_entry {
 struct sm2_cma_data {
 	size_t iov_count;
 	struct iovec iov[SM2_IOV_LIMIT];
+
+	/* Used for IPC host to device protocol */
+	struct ipc_info ipc_info;
+	struct fi_peer_rx_entry *rx_entry;
 };
 
 struct sm2_ep_name {
