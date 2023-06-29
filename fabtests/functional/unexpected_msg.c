@@ -47,6 +47,7 @@
 #include <rdma/fi_cm.h>
 
 #include "shared.h"
+#include "hmem.h"
 
 
 static size_t concurrent_msgs = 4;
@@ -62,7 +63,8 @@ static int alloc_bufs(void)
 	rx_size = opts.transfer_size + ft_rx_prefix_size();
 	buf_size = (tx_size + rx_size) * concurrent_msgs;
 
-	buf = malloc(buf_size);
+	// buf = malloc(buf_size);
+	ft_hmem_alloc(opts.iface, opts.device, (void **) &buf, buf_size);
 	tx_ctx_arr = calloc(concurrent_msgs, sizeof(*tx_ctx_arr));
 	rx_ctx_arr = calloc(concurrent_msgs, sizeof(*rx_ctx_arr));
 	if (!buf || !tx_ctx_arr || !rx_ctx_arr)
