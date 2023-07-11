@@ -96,6 +96,17 @@ enum {
 
 #define SM2_RETURN (1 << 0)
 
+/* The SM2_UNEXP flag is used for unexpected receives. On the receiver, it
+indicates that the xfer_entry that the receiver is processing is actually in the
+xfer_ctx_pool and not in the receiver's freestack.
+
+For protocols that require delivery complete semantics (CMA and IPC), the
+receiver pops an xfer_entry from its own freestack, sets SM2_UNEXP flag together
+with SM2_RETURN and SM2_GENERATE_COMPLETION and sends it to the sender. The
+sender will generate the completion entry when it receives such an xfer_entry.
+*/
+#define SM2_UNEXP (1 << 1)
+
 /*
  * 	next - fifo linked list next ptr
  * 		This is volatile for a reason, many things touch this
