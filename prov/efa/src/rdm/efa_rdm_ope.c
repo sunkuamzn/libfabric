@@ -133,6 +133,7 @@ void efa_rdm_txe_release(struct efa_rdm_ope *txe)
 	int i, err = 0;
 	struct dlist_entry *tmp;
 	struct efa_rdm_pke *pkt_entry;
+	struct efa_mr *efa_mr;
 
 	/* txe->peer would be NULL for local read operation */
 	if (txe->peer) {
@@ -146,6 +147,9 @@ void efa_rdm_txe_release(struct efa_rdm_ope *txe)
 				EFA_WARN(FI_LOG_CQ, "mr dereg failed. err=%d\n", err);
 				efa_base_ep_write_eq_error(&txe->ep->base_ep, err, FI_EFA_ERR_MR_DEREG);
 			}
+			efa_mr = container_of((struct fid *)txe->mr[i], struct efa_mr, mr_fid.fid);
+			efa_mr->domain->mr_reg_ct_internal--;
+			efa_mr->domain->mr_reg_sz_internal -= efa_mr->ibv_mr->length;
 
 			txe->mr[i] = NULL;
 		}
@@ -182,6 +186,7 @@ void efa_rdm_rxe_release_internal(struct efa_rdm_ope *rxe)
 {
 	struct efa_rdm_pke *pkt_entry;
 	struct dlist_entry *tmp;
+	struct efa_mr *efa_mr;
 	int i, err;
 
 	if (rxe->peer)
@@ -196,6 +201,9 @@ void efa_rdm_rxe_release_internal(struct efa_rdm_ope *rxe)
 				EFA_WARN(FI_LOG_CQ, "mr dereg failed. err=%d\n", err);
 				efa_base_ep_write_eq_error(&rxe->ep->base_ep, err, FI_EFA_ERR_MR_DEREG);
 			}
+			efa_mr = container_of((struct fid *)rxe->mr[i], struct efa_mr, mr_fid.fid);
+			efa_mr->domain->mr_reg_ct_internal--;
+			efa_mr->domain->mr_reg_sz_internal -= efa_mr->ibv_mr->length;
 
 			rxe->mr[i] = NULL;
 		}
@@ -299,6 +307,7 @@ void efa_rdm_rxe_release(struct efa_rdm_ope *rxe)
 void efa_rdm_ope_try_fill_desc(struct efa_rdm_ope *ope, int mr_iov_start, uint64_t access)
 {
 	int i, err;
+	struct efa_mr *efa_mr;
 
 	for (i = mr_iov_start; i < ope->iov_count; ++i) {
 		if (ope->desc[i])
@@ -317,6 +326,9 @@ void efa_rdm_ope_try_fill_desc(struct efa_rdm_ope *ope, int mr_iov_start, uint64
 
 			ope->mr[i] = NULL;
 		} else {
+			efa_mr = container_of((struct fid *)ope->mr[i], struct efa_mr, mr_fid.fid);
+			efa_mr->domain->mr_reg_ct_internal++;
+			efa_mr->domain->mr_reg_sz_internal += efa_mr->ibv_mr->length;
 			ope->desc[i] = fi_mr_desc(ope->mr[i]);
 		}
 	}
