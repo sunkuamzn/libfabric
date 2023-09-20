@@ -354,6 +354,8 @@ static int efa_domain_close(fid_t fid)
 	if (efa_domain->info)
 		fi_freeinfo(efa_domain->info);
 
+	EFA_WARN(FI_LOG_MR, "efa_domain_close: total mr reg size %lu, mr reg count %lu, internal mr reg count %lu, internal mr reg size %lu\n",
+					efa_domain->mr_reg_sz, efa_domain->mr_reg_ct, efa_domain->mr_reg_ct_internal, efa_domain->mr_reg_sz_internal);
 	ofi_genlock_destroy(&efa_domain->srx_lock);
 	free(efa_domain->qp_table);
 	free(efa_domain);
