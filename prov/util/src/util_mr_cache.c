@@ -232,6 +232,9 @@ bool ofi_mr_cache_flush(struct ofi_mr_cache *cache, bool flush_lru)
 		util_mr_free_entry(cache, entry);
 	}
 
+    FI_WARN(&core_prov, FI_LOG_MR,
+           "ofi_mr_cache_flush entries freed? %d lru_list size %ld dead_region_list size %ld\n",
+           entries_freed, dlist_size(&cache->lru_list), dlist_size(&cache->dead_region_list));
 	return entries_freed;
 }
 
