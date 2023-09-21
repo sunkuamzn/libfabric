@@ -122,10 +122,10 @@ int efa_rdm_msg_select_rtm(struct efa_rdm_ep *efa_rdm_ep, struct efa_rdm_ope *tx
 
 	readbase_rtm = efa_rdm_peer_select_readbase_rtm(peer, txe->op, txe->fi_flags, &hmem_info[iface]);
 
-	if (txe->total_len >= hmem_info[iface].min_read_msg_size &&
-		efa_both_support_rdma_read(efa_rdm_ep, peer) &&
-		(txe->desc[0] || efa_is_cache_available(efa_rdm_ep_domain(efa_rdm_ep))))
-		return readbase_rtm;
+	// if (txe->total_len >= hmem_info[iface].min_read_msg_size &&
+	// 	efa_both_support_rdma_read(efa_rdm_ep, peer) &&
+	// 	(txe->desc[0] || efa_is_cache_available(efa_rdm_ep_domain(efa_rdm_ep))))
+	// 	return readbase_rtm;
 
 	if (txe->total_len <= eager_rtm_max_data_size)
 		return eager_rtm;

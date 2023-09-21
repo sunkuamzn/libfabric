@@ -310,27 +310,27 @@ void efa_rdm_ope_try_fill_desc(struct efa_rdm_ope *ope, int mr_iov_start, uint64
 	struct efa_mr *efa_mr;
 
 	for (i = mr_iov_start; i < ope->iov_count; ++i) {
-		if (ope->desc[i])
-			continue;
-
-		err = fi_mr_regv(
-			&efa_rdm_ep_domain(ope->ep)->util_domain.domain_fid,
-			ope->iov + i, 1, access, 0, 0, 0, &ope->mr[i],
-			NULL);
-
-		if (err) {
-			EFA_WARN(FI_LOG_EP_CTRL,
-				"fi_mr_reg failed! buf: %p len: %ld access: %lx\n",
-				ope->iov[i].iov_base, ope->iov[i].iov_len,
-				access);
-
+		if (!ope->desc[i])
 			ope->mr[i] = NULL;
-		} else {
-			efa_mr = container_of((struct fid *)ope->mr[i], struct efa_mr, mr_fid.fid);
-			efa_mr->domain->mr_reg_ct_internal++;
-			efa_mr->domain->mr_reg_sz_internal += efa_mr->ibv_mr->length;
-			ope->desc[i] = fi_mr_desc(ope->mr[i]);
-		}
+
+		// err = fi_mr_regv(
+		// 	&efa_rdm_ep_domain(ope->ep)->util_domain.domain_fid,
+		// 	ope->iov + i, 1, access, 0, 0, 0, &ope->mr[i],
+		// 	NULL);
+
+		// if (err) {
+		// 	EFA_WARN(FI_LOG_EP_CTRL,
+		// 		"fi_mr_reg failed! buf: %p len: %ld access: %lx\n",
+		// 		ope->iov[i].iov_base, ope->iov[i].iov_len,
+		// 		access);
+
+		// 	ope->mr[i] = NULL;
+		// } else {
+		// 	efa_mr = container_of((struct fid *)ope->mr[i], struct efa_mr, mr_fid.fid);
+		// 	efa_mr->domain->mr_reg_ct_internal++;
+		// 	efa_mr->domain->mr_reg_sz_internal += efa_mr->ibv_mr->length;
+		// 	ope->desc[i] = fi_mr_desc(ope->mr[i]);
+		// }
 	}
 }
 
