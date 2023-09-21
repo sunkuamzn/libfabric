@@ -346,7 +346,7 @@ int efa_rdm_txe_prepare_to_be_read(struct efa_rdm_ope *txe, struct fi_rma_iov *r
 
 		if (!txe->desc[i]) {
 			/* efa_rdm_ope_try_fill_desc() did not register the memory */
-			return -FI_ENOMEM;
+			return -FI_EAGAIN;
 		}
 
 		read_iov[i].key = fi_mr_key(txe->desc[i]);
