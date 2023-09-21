@@ -151,6 +151,16 @@ static inline void dlist_remove_init(struct dlist_entry *item)
 
 typedef int dlist_func_t(struct dlist_entry *item, const void *arg);
 
+static inline size_t dlist_size(struct dlist_entry *head) {
+	size_t size = 0;
+	struct dlist_entry *item;
+
+	dlist_foreach(head, item) {
+		size ++;
+	}
+	return size;
+}
+
 static inline struct dlist_entry *
 dlist_find_first_match(struct dlist_entry *head, dlist_func_t *match,
 		       const void *arg)
