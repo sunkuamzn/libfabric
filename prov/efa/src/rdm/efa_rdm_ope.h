@@ -298,6 +298,8 @@ void efa_rdm_rxe_release_internal(struct efa_rdm_ope *rxe);
  */
 #define EFA_RDM_OPE_QUEUED_READ 	BIT_ULL(12)
 
+#define EFA_RDM_OPE_READ_NACK 	BIT_ULL(13)
+
 void efa_rdm_ope_try_fill_desc(struct efa_rdm_ope *ope, int mr_iov_start, uint64_t access);
 
 int efa_rdm_txe_prepare_to_be_read(struct efa_rdm_ope *txe,
@@ -340,6 +342,9 @@ ssize_t efa_rdm_ope_prepare_to_post_send(struct efa_rdm_ope *ope,
 					 int *pkt_entry_data_size_vec);
 
 ssize_t efa_rdm_ope_post_send(struct efa_rdm_ope *ope, int pkt_type);
+
+ssize_t efa_rdm_ope_post_send_handle_error(struct efa_rdm_ope *ope,
+					   int pkt_type, ssize_t err);
 
 ssize_t efa_rdm_ope_post_send_or_queue(struct efa_rdm_ope *ope, int pkt_type);
 
