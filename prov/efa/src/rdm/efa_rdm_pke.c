@@ -633,7 +633,7 @@ ssize_t efa_rdm_pke_recvv(struct efa_rdm_pke **pke_vec,
 			  int pke_cnt)
 {
 	struct efa_rdm_ep *ep;
-	struct ibv_recv_wr recv_wr_vec[EFA_RDM_EP_MAX_WR_PER_IBV_POST_RECV], *bad_wr;
+	struct ibv_recv_wr recv_wr, *bad_wr;
 	struct ibv_sge sge_vec[EFA_RDM_EP_MAX_WR_PER_IBV_POST_RECV];
 	int i, err;
 
@@ -643,17 +643,17 @@ ssize_t efa_rdm_pke_recvv(struct efa_rdm_pke **pke_vec,
 	assert(ep);
 
 	for (i = 0; i < pke_cnt; ++i) {
-		recv_wr_vec[i].wr_id = (uintptr_t)pke_vec[i];
-		recv_wr_vec[i].num_sge = 1;	/* Always post one iov/SGE */
-		recv_wr_vec[i].sg_list = &sge_vec[i];
+		recv_wr.wr_id = (uintptr_t)pke_vec[i];
+		recv_wr.num_sge = 1;	/* Always post one iov/SGE */
+		recv_wr.sg_list = &sge_vec[i];
 		assert(pke_vec[i]->pkt_size > 0);
-		recv_wr_vec[i].sg_list[0].length = pke_vec[i]->pkt_size;
-		recv_wr_vec[i].sg_list[0].lkey = ((struct efa_mr *) pke_vec[i]->mr)->ibv_mr->lkey;
-		recv_wr_vec[i].sg_list[0].addr = (uintptr_t)pke_vec[i]->wiredata;
-		recv_wr_vec[i].next = NULL;
+		recv_wr.sg_list[0].length = pke_vec[i]->pkt_size;
+		recv_wr.sg_list[0].lkey = ((struct efa_mr *) pke_vec[i]->mr)->ibv_mr->lkey;
+		recv_wr.sg_list[0].addr = (uintptr_t)pke_vec[i]->wiredata;
+		recv_wr.next = NULL;
 		// if (i > 0)
 			// recv_wr_vec[i-1].next = &recv_wr_vec[i];
-		err = ibv_post_recv(ep->base_ep.qp->ibv_qp, &recv_wr_vec[i], &bad_wr);
+		err = ibv_post_recv(ep->base_ep.qp->ibv_qp, &recv_wr, &bad_wr);
 		if (OFI_UNLIKELY(err)) {
 			err = (err == ENOMEM) ? -FI_EAGAIN : -err;
 		}
