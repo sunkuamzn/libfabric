@@ -651,17 +651,15 @@ ssize_t efa_rdm_pke_recvv(struct efa_rdm_pke **pke_vec,
 		recv_wr_vec[i].sg_list[0].lkey = ((struct efa_mr *) pke_vec[i]->mr)->ibv_mr->lkey;
 		recv_wr_vec[i].sg_list[0].addr = (uintptr_t)pke_vec[i]->wiredata;
 		recv_wr_vec[i].next = NULL;
-		if (i > 0)
-			recv_wr_vec[i-1].next = &recv_wr_vec[i];
+		// if (i > 0)
+			// recv_wr_vec[i-1].next = &recv_wr_vec[i];
+		err = ibv_post_recv(ep->base_ep.qp->ibv_qp, &recv_wr_vec[i], &bad_wr);
+		if (OFI_UNLIKELY(err)) {
+			err = (err == ENOMEM) ? -FI_EAGAIN : -err;
+		}
 #if HAVE_LTTNG
 		efa_tracepoint_wr_id_post_recv(pke_vec[i]);
 #endif
 	}
-
-	err = ibv_post_recv(ep->base_ep.qp->ibv_qp, &recv_wr_vec[0], &bad_wr);
-	if (OFI_UNLIKELY(err)) {
-		err = (err == ENOMEM) ? -FI_EAGAIN : -err;
-	}
-
 	return err;
 }
