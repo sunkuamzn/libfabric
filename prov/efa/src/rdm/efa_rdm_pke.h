@@ -37,6 +37,7 @@
 #include <uthash.h>
 #include <ofi_mem.h>
 #include <ofi_list.h>
+#include <infiniband/verbs.h>
 
 #define EFA_RDM_PKE_IN_USE		BIT_ULL(0) /**< this packet entry is being used */
 #define EFA_RDM_PKE_RNR_RETRANSMIT	BIT_ULL(1) /**< this packet entry encountered RNR and is being retransmitted*/
@@ -55,6 +56,34 @@ enum efa_rdm_pke_alloc_type {
 	EFA_RDM_PKE_FROM_OOO_POOL,	      /**< packet is allocated from `ep->rx_ooo_pkt_pool` */
 	EFA_RDM_PKE_FROM_USER_BUFFER,     /**< packet is from user provided buffer` */
 	EFA_RDM_PKE_FROM_READ_COPY_POOL,  /**< packet is allocated from `ep->rx_readcopy_pkt_pool` */
+};
+
+struct rxr_pkt_sendv {
+	/**
+	 * @brief number of iovec to be passed to device and sent over wire
+	 * 
+	 * Because core EP current only support 2 iov,
+	 * and for the sake of code simplicity, we use 2 iov.
+	 * One for header, and the other for data.
+	 * iov_count here is used as an indication
+	 * of whether iov is used, it is either 0 or 2.
+	 */
+	int iov_count;
+	struct iovec iov[2];
+	void *desc[2];
+};
+
+struct efa_recv_wr {
+	/** @brief Work request struct used by rdma-core */
+	struct ibv_recv_wr wr;
+
+	/** @brief Scatter gather element array
+	 *
+	 * @details
+	 * EFA device supports a maximum of 2 iov/SGE
+	 * For receive, we only use 1 SGE
+	 */
+	struct ibv_sge sge[1];
 };
 
 /**
@@ -111,7 +140,8 @@ struct efa_rdm_pke {
 #if ENABLE_DEBUG
 	/** @brief entry to a linked list of posted buf list */
 	struct dlist_entry dbg_entry;
-	uint8_t pad[112];
+	// uint8_t pad[112];
+	uint8_t pad[64];
 #endif
 	/** @brief pointer to #efa_rdm_ep */
 	struct efa_rdm_ep *ep;
@@ -203,7 +233,14 @@ struct efa_rdm_pke {
 	 */
 	size_t payload_size;
 
-	uint8_t pad2[32];
+	/**
+	 * @brief Work request struct used by rdma-core for receive.
+	 * @todo move this field out of efa_rdm_pke to a separate pool.
+	 */
+	struct efa_recv_wr recv_wr;
+
+	// uint8_t pad2[32];
+	uint8_t pad2[48];
 
 	/** @brief buffer that contains data that is going over wire
 	 *
@@ -229,7 +266,8 @@ struct efa_rdm_pke {
 #if ENABLE_DEBUG
 static_assert(sizeof(struct efa_rdm_pke) == 256, "efa_rdm_pke check");
 #else
-static_assert(sizeof(struct efa_rdm_pke) == 128, "efa_rdm_pke check");
+static_assert(sizeof(struct efa_rdm_pke) % 64 == 0, "efa_rdm_pke check");
+static_assert(sizeof(struct efa_rdm_pke) == 192, "efa_rdm_pke check");
 #endif
 #endif
 

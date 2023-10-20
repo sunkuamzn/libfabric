@@ -80,6 +80,7 @@ struct efa_rdm_pke *efa_rdm_pke_alloc(struct efa_rdm_ep *ep,
 #if ENABLE_DEBUG
 	dlist_init(&pkt_entry->dbg_entry);
 #endif
+
 	/* Initialize necessary fields in pkt_entry.
 	 * The memory region allocated by ofi_buf_alloc_ex is not initalized.
 	 */
@@ -100,6 +101,7 @@ struct efa_rdm_pke *efa_rdm_pke_alloc(struct efa_rdm_ep *ep,
 	pkt_entry->payload = NULL;
 	pkt_entry->payload_size = 0;
 	pkt_entry->payload_mr = NULL;
+	pkt_entry->recv_wr.wr.next = NULL;
 	return pkt_entry;
 }
 
