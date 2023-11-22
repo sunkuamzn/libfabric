@@ -15,6 +15,10 @@ def efa_run_client_server_test(cmdline_args, executable, iteration_type,
     if "cuda" in memory_type:
         timeout = max(1000, timeout)
 
+    num_efa = len(get_efa_device_names(cmdline_args.server_id))
+    if num_efa > 8 and "host" in memory_type and "cuda" in memory_type:
+        pytest.skip("Skip host<->cuda tests on instances with high EFA device count")
+
     test = ClientServerTest(cmdline_args, executable, iteration_type,
                             completion_semantic=completion_semantic,
                             datacheck_type="with_datacheck",
