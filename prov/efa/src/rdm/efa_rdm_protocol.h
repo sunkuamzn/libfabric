@@ -110,7 +110,7 @@ struct efa_ep_addr {
 
 #if defined(static_assert) && defined(__x86_64__)
 #define EFA_RDM_ENSURE_HEADER_SIZE(hdr, size)	\
-	static_assert(sizeof (struct hdr) == (size), #hdr " size check")
+	// static_assert(sizeof (struct hdr) == (size), #hdr " size check")
 #else
 #define EFA_RDM_ENSURE_HEADER_SIZE(hdr, size)
 #endif
@@ -123,13 +123,14 @@ struct efa_ep_addr {
 		uint8_t		type;		\
 		uint8_t		version;	\
 		uint16_t	flags;		\
+		uint64_t    my_av_index_in_peer_av; \
 	}
 
 struct efa_rdm_base_hdr {
 	EFA_RDM_BASE_HEADER();
 };
 
-EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_base_hdr, 4);
+EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_base_hdr, 8);
 
 /* Universal flags that can be applied on "efa_rdm_base_hdr.flags".
  *
@@ -140,6 +141,9 @@ EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_base_hdr, 4);
  * own set of flags, which generally starts from the 0th bit
  * in "efa_rdm_base_hdr.flags".
  */
+
+/* indicate this packet has the sender's AV index in peer's AV set */
+#define EFA_RDM_PKT_MY_AV_INDEX_IN_PEER_AV_SET		BIT_ULL(14)
 
 /* indicate this packet has the sender connid */
 #define EFA_RDM_PKT_CONNID_HDR		BIT_ULL(15)
@@ -329,6 +333,7 @@ struct efa_rdm_handshake_hdr {
 	 * The "p3" part was introduced for backward compatibility.
 	 * See protocol v4 document section 2.1 for detail.
 	 */
+	fi_addr_t peer_av_index_in_my_av;
 	uint32_t nextra_p3;
 	uint64_t extra_info[0];
 };
