@@ -30,6 +30,8 @@ struct efa_rdm_peer {
 	uint32_t device_version;	/**< EFA device version */
 	fi_addr_t efa_fiaddr;		/**< libfabric addr from efa provider's perspective */
 	fi_addr_t shm_fiaddr;		/**< libfabric addr from shm provider's perspective */
+	fi_addr_t my_av_index_in_peer_av;
+	bool my_av_index_in_peer_av_set;
 	uint64_t host_id; 		/* Optional peer host id. Default 0 */
 	/**
 	 * @brief reorder buffer

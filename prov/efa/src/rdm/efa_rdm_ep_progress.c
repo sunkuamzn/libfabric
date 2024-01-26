@@ -423,6 +423,7 @@ static inline void efa_rdm_ep_poll_ibv_cq(struct efa_rdm_ep *ep, size_t cqe_to_p
 	struct ibv_poll_cq_attr poll_cq_attr = {.comp_mask = 0};
 	struct efa_av *efa_av;
 	struct efa_rdm_pke *pkt_entry;
+	struct efa_rdm_base_hdr *base_hdr;
 	ssize_t err;
 	int opcode;
 	size_t i = 0;
@@ -466,11 +467,18 @@ static inline void efa_rdm_ep_poll_ibv_cq(struct efa_rdm_ep *ep, size_t cqe_to_p
 			efa_rdm_pke_handle_send_completion(pkt_entry);
 			break;
 		case IBV_WC_RECV:
-			pkt_entry->addr = efa_av_reverse_lookup_rdm(efa_av, ibv_wc_read_slid(ep->ibv_cq_ex),
-								ibv_wc_read_src_qp(ep->ibv_cq_ex), pkt_entry);
 
-			if (pkt_entry->addr == FI_ADDR_NOTAVAIL) {
-				pkt_entry->addr = efa_rdm_ep_determine_addr_from_ibv_cq(ep, ep->ibv_cq_ex);
+			base_hdr = efa_rdm_pke_get_base_hdr(pkt_entry);
+
+			if (OFI_LIKELY(base_hdr->flags | EFA_RDM_PKT_MY_AV_INDEX_IN_PEER_AV_SET)) {
+				pkt_entry->addr = base_hdr->my_av_index_in_peer_av;
+			} else {
+				pkt_entry->addr = efa_av_reverse_lookup_rdm(efa_av, ibv_wc_read_slid(ep->ibv_cq_ex),
+									ibv_wc_read_src_qp(ep->ibv_cq_ex), pkt_entry);
+
+				if (pkt_entry->addr == FI_ADDR_NOTAVAIL) {
+					pkt_entry->addr = efa_rdm_ep_determine_addr_from_ibv_cq(ep, ep->ibv_cq_ex);
+				}
 			}
 
 			pkt_entry->pkt_size = ibv_wc_read_byte_len(ep->ibv_cq_ex);
