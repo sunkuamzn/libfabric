@@ -820,6 +820,8 @@ static int efa_rdm_ep_close(struct fid *fid)
 
 	efa_rdm_ep = container_of(fid, struct efa_rdm_ep, base_ep.util_ep.ep_fid.fid);
 
+	EFA_WARN(FI_LOG_EP_CTRL, "Reverse AV lookup count %d\n", efa_rdm_ep->base_ep.reverse_av_lookup_count);
+
 	if (efa_rdm_ep->base_ep.efa_qp_enabled)
 		efa_rdm_ep_wait_send(efa_rdm_ep);
 
