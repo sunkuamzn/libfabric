@@ -67,7 +67,9 @@ void efa_rdm_pke_init_req_hdr_common(struct efa_rdm_pke *pkt_entry,
 	if (txe->peer->my_av_index_in_peer_av_set) {
 		base_hdr->flags |= EFA_RDM_PKT_MY_AV_INDEX_IN_PEER_AV_SET;
 		base_hdr->my_av_index_in_peer_av = txe->peer->my_av_index_in_peer_av;
-		EFA_WARN(FI_LOG_CQ, "Sending req pkt with my_av_index_in_peer_av %ld\n", txe->peer->my_av_index_in_peer_av);
+		EFA_DBG(FI_LOG_CQ, "Sending req pkt with my_av_index_in_peer_av %ld\n", txe->peer->my_av_index_in_peer_av);
+	} else {
+		EFA_WARN(FI_LOG_CQ, "sernding req pkt without peer->my_av_index_in_peer_av\n");
 	}
 
 	ep = txe->ep;
