@@ -64,7 +64,7 @@ void efa_rdm_pke_init_req_hdr_common(struct efa_rdm_pke *pkt_entry,
 	base_hdr->version = EFA_RDM_PROTOCOL_VERSION;
 	base_hdr->flags = 0;
 
-	if (txe->peer->my_av_index_in_peer_av_set) {
+	if (txe->peer->flags & EFA_RDM_PEER_MY_AV_INDEX_IN_PEER_AV_SET) {
 		base_hdr->flags |= EFA_RDM_PKT_MY_AV_INDEX_IN_PEER_AV_SET;
 		base_hdr->my_av_index_in_peer_av = txe->peer->my_av_index_in_peer_av;
 		EFA_DBG(FI_LOG_CQ, "Sending req pkt with my_av_index_in_peer_av %ld\n", txe->peer->my_av_index_in_peer_av);

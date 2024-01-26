@@ -16,6 +16,7 @@ OFI_DECL_RECVWIN_BUF(struct efa_rdm_pke*, efa_rdm_robuf, uint32_t);
 #define EFA_RDM_PEER_HANDSHAKE_SENT BIT_ULL(1) /**< a handshake packet has been sent to the peer */
 #define EFA_RDM_PEER_HANDSHAKE_RECEIVED BIT_ULL(2) /**< a handshaked packet has been received from this peer */
 #define EFA_RDM_PEER_IN_BACKOFF BIT_ULL(3) /**< peer is in backoff mode due to RNR (Endpoint should not send packet to this peer) */
+#define EFA_RDM_PEER_MY_AV_INDEX_IN_PEER_AV_SET BIT_ULL(4) /**< The field peer->my_av_index_in_peer_av has been set, so we can send this for remaining packets */
 /**
  * @details
  * FI_EAGAIN error was encountered when sending handshake to this peer,
@@ -31,7 +32,6 @@ struct efa_rdm_peer {
 	fi_addr_t efa_fiaddr;		/**< libfabric addr from efa provider's perspective */
 	fi_addr_t shm_fiaddr;		/**< libfabric addr from shm provider's perspective */
 	fi_addr_t my_av_index_in_peer_av;
-	bool my_av_index_in_peer_av_set;
 	uint64_t host_id; 		/* Optional peer host id. Default 0 */
 	/**
 	 * @brief reorder buffer

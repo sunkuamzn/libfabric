@@ -94,7 +94,7 @@ void efa_rdm_pke_handle_handshake_recv(struct efa_rdm_pke *pkt_entry)
 	handshake_pkt = (struct efa_rdm_handshake_hdr *)pkt_entry->wiredata;
 
 	peer->my_av_index_in_peer_av = handshake_pkt->peer_av_index_in_my_av;
-	peer->my_av_index_in_peer_av_set = true;
+	peer->flags |= EFA_RDM_PEER_MY_AV_INDEX_IN_PEER_AV_SET;
 
 	EFA_DBG(FI_LOG_CQ,
 		"HANDSHAKE received from %" PRIu64
