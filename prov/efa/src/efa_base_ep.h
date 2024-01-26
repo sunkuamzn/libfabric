@@ -82,6 +82,8 @@ struct efa_base_ep {
 	struct ibv_recv_wr recv_more_wr_head;
 	struct ibv_recv_wr *recv_more_wr_tail;
 	struct efa_recv_wr *efa_recv_wr_vec;
+
+	uint32_t reverse_av_lookup_count;
 };
 
 int efa_base_ep_bind_av(struct efa_base_ep *base_ep, struct efa_av *av);

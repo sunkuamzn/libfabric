@@ -138,6 +138,8 @@ fi_addr_t efa_av_reverse_lookup_rdm(struct efa_av *av, uint16_t ahn, uint16_t qp
 	struct efa_prv_reverse_av_key prv_key;
 	uint32_t *connid;
 
+	av->base_ep->reverse_av_lookup_count += 1;
+
 	cur_key.ahn = ahn;
 	cur_key.qpn = qpn;
 
