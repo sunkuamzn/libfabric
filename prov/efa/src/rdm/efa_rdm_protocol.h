@@ -110,7 +110,7 @@ struct efa_ep_addr {
 
 #if defined(static_assert) && defined(__x86_64__)
 #define EFA_RDM_ENSURE_HEADER_SIZE(hdr, size)	\
-	// static_assert(sizeof (struct hdr) == (size), #hdr " size check")
+	static_assert(sizeof (struct hdr) == (size), #hdr " size check")
 #else
 #define EFA_RDM_ENSURE_HEADER_SIZE(hdr, size)
 #endif
@@ -123,14 +123,15 @@ struct efa_ep_addr {
 		uint8_t		type;		\
 		uint8_t		version;	\
 		uint16_t	flags;		\
-		uint64_t    my_av_index_in_peer_av; \
+		uint32_t     internal;  \
+		fi_addr_t    my_av_index_in_peer_av; \
 	}
 
 struct efa_rdm_base_hdr {
 	EFA_RDM_BASE_HEADER();
 };
 
-EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_base_hdr, 8);
+EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_base_hdr, 16);
 
 /* Universal flags that can be applied on "efa_rdm_base_hdr.flags".
  *
@@ -180,7 +181,7 @@ struct efa_rdm_cts_hdr {
 	uint64_t recv_length; /* number of bytes receiver is ready to receive */
 };
 
-EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_cts_hdr, 24);
+EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_cts_hdr, 40);
 
 /* this flag is to indicated the CTS is the response of a RTR packet */
 #define EFA_RDM_CTS_READ_REQ		BIT_ULL(7)
@@ -218,7 +219,7 @@ struct efa_rdm_ctsdata_hdr {
 	struct efa_rdm_ctsdata_opt_connid_hdr connid_hdr[0];
 };
 
-EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_ctsdata_hdr, 24);
+EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_ctsdata_hdr, 40);
 
 /*
  *  @brief READRSP packet header (Packet Type ID 5)
@@ -237,7 +238,7 @@ struct efa_rdm_readrsp_hdr {
 	uint64_t seg_length;
 };
 
-EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_readrsp_hdr, 24);
+EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_readrsp_hdr, 40);
 
 struct efa_rdm_readrsp_pkt {
 	struct efa_rdm_readrsp_hdr hdr;
@@ -276,7 +277,7 @@ struct efa_rdm_eor_hdr {
 	};
 };
 
-EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_eor_hdr, 16);
+EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_eor_hdr, 32);
 
 /*
  * @brief format of the read NACK packet. (Packet Type ID 11)
@@ -292,7 +293,7 @@ struct efa_rdm_read_nack_hdr {
 	};
 };
 
-EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_read_nack_hdr, 16);
+EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_read_nack_hdr, 32);
 
 /**
  * @brief header format of ATOMRSP packet. (Packet Type ID 8)
@@ -312,7 +313,7 @@ struct efa_rdm_atomrsp_hdr {
 	uint64_t seg_length;
 };
 
-EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_atomrsp_hdr, 24);
+EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_atomrsp_hdr, 40);
 
 struct efa_rdm_atomrsp_pkt {
 	struct efa_rdm_atomrsp_hdr hdr;
@@ -342,7 +343,7 @@ struct efa_rdm_handshake_hdr {
 #define EFA_RDM_HANDSHAKE_HOST_ID_HDR		BIT_ULL(0)
 #define EFA_RDM_HANDSHAKE_DEVICE_VERSION_HDR	BIT_ULL(1)
 
-EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_handshake_hdr, 8);
+EFA_RDM_ENSURE_HEADER_SIZE(efa_rdm_handshake_hdr, 32);
 
 struct efa_rdm_handshake_opt_connid_hdr {
 	union {
