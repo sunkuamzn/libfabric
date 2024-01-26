@@ -125,8 +125,15 @@ void efa_rdm_pke_handle_handshake_recv(struct efa_rdm_pke *pkt_entry)
 ssize_t efa_rdm_pke_init_cts(struct efa_rdm_pke *pkt_entry,
 			     struct efa_rdm_ope *ope)
 {
+	struct efa_rdm_base_hdr *base_hdr;
 	struct efa_rdm_cts_hdr *cts_hdr;
 	size_t bytes_left;
+
+	base_hdr = (struct efa_rdm_base_hdr *) pkt_entry;
+	if (ope->peer->flags & EFA_RDM_PEER_MY_AV_INDEX_IN_PEER_AV_SET) {
+		base_hdr->flags |= EFA_RDM_PKT_MY_AV_INDEX_IN_PEER_AV_SET;
+		base_hdr->my_av_index_in_peer_av = ope->peer->my_av_index_in_peer_av;
+	}
 
 	cts_hdr = (struct efa_rdm_cts_hdr *)pkt_entry->wiredata;
 	cts_hdr->type = EFA_RDM_CTS_PKT;
@@ -204,6 +211,7 @@ int efa_rdm_pke_init_ctsdata(struct efa_rdm_pke *pkt_entry,
 			     size_t data_offset,
 			     int data_size)
 {
+	struct efa_rdm_base_hdr *base_hdr;
 	struct efa_rdm_ctsdata_hdr *data_hdr;
 	struct efa_rdm_peer *peer;
 	struct efa_rdm_ep *ep;
@@ -215,6 +223,12 @@ int efa_rdm_pke_init_ctsdata(struct efa_rdm_pke *pkt_entry,
 	data_hdr->type = EFA_RDM_CTSDATA_PKT;
 	data_hdr->version = EFA_RDM_PROTOCOL_VERSION;
 	data_hdr->flags = 0;
+
+	base_hdr = (struct efa_rdm_base_hdr *) pkt_entry;
+	if (ope->peer->flags & EFA_RDM_PEER_MY_AV_INDEX_IN_PEER_AV_SET) {
+		base_hdr->flags |= EFA_RDM_PKT_MY_AV_INDEX_IN_PEER_AV_SET;
+		base_hdr->my_av_index_in_peer_av = ope->peer->my_av_index_in_peer_av;
+	}
 
 	/* Data is sent using rxe in the emulated longcts read 
 	 * protocol. The emulated longcts write and the longcts 
@@ -362,8 +376,15 @@ void efa_rdm_pke_handle_ctsdata_recv(struct efa_rdm_pke *pkt_entry)
 int efa_rdm_pke_init_readrsp(struct efa_rdm_pke *pkt_entry,
 			     struct efa_rdm_ope *rxe)
 {
+	struct efa_rdm_base_hdr *base_hdr;
 	struct efa_rdm_readrsp_hdr *readrsp_hdr;
 	int ret;
+
+	base_hdr = (struct efa_rdm_base_hdr *) pkt_entry;
+	if (rxe->peer->flags & EFA_RDM_PEER_MY_AV_INDEX_IN_PEER_AV_SET) {
+		base_hdr->flags |= EFA_RDM_PKT_MY_AV_INDEX_IN_PEER_AV_SET;
+		base_hdr->my_av_index_in_peer_av = rxe->peer->my_av_index_in_peer_av;
+	}
 
 	readrsp_hdr = efa_rdm_pke_get_readrsp_hdr(pkt_entry);
 	readrsp_hdr->type = EFA_RDM_READRSP_PKT;
@@ -596,7 +617,14 @@ void efa_rdm_pke_handle_rma_completion(struct efa_rdm_pke *context_pkt_entry)
 /*  EOR packet related functions */
 int efa_rdm_pke_init_eor(struct efa_rdm_pke *pkt_entry, struct efa_rdm_ope *rxe)
 {
+	struct efa_rdm_base_hdr *base_hdr;
 	struct efa_rdm_eor_hdr *eor_hdr;
+
+	base_hdr = (struct efa_rdm_base_hdr *) pkt_entry;
+	if (rxe->peer->flags & EFA_RDM_PEER_MY_AV_INDEX_IN_PEER_AV_SET) {
+		base_hdr->flags |= EFA_RDM_PKT_MY_AV_INDEX_IN_PEER_AV_SET;
+		base_hdr->my_av_index_in_peer_av = rxe->peer->my_av_index_in_peer_av;
+	}
 
 	eor_hdr = (struct efa_rdm_eor_hdr *)pkt_entry->wiredata;
 	eor_hdr->type = EFA_RDM_EOR_PKT;
@@ -629,7 +657,14 @@ void efa_rdm_pke_handle_eor_send_completion(struct efa_rdm_pke *pkt_entry)
 /*  Read NACK packet related functions */
 int efa_rdm_pke_init_read_nack(struct efa_rdm_pke *pkt_entry, struct efa_rdm_ope *rxe)
 {
+	struct efa_rdm_base_hdr *base_hdr;
 	struct efa_rdm_read_nack_hdr *nack_hdr;
+
+	base_hdr = (struct efa_rdm_base_hdr *) pkt_entry;
+	if (rxe->peer->flags & EFA_RDM_PEER_MY_AV_INDEX_IN_PEER_AV_SET) {
+		base_hdr->flags |= EFA_RDM_PKT_MY_AV_INDEX_IN_PEER_AV_SET;
+		base_hdr->my_av_index_in_peer_av = rxe->peer->my_av_index_in_peer_av;
+	}
 
 	nack_hdr = (struct efa_rdm_read_nack_hdr *)pkt_entry->wiredata;
 	nack_hdr->type = EFA_RDM_READ_NACK_PKT;
@@ -712,7 +747,14 @@ void efa_rdm_pke_handle_read_nack_recv(struct efa_rdm_pke *pkt_entry)
 /* receipt packet related functions */
 int efa_rdm_pke_init_receipt(struct efa_rdm_pke *pkt_entry, struct efa_rdm_ope *rxe)
 {
+	struct efa_rdm_base_hdr *base_hdr;
 	struct efa_rdm_receipt_hdr *receipt_hdr;
+
+	base_hdr = (struct efa_rdm_base_hdr *) pkt_entry;
+	if (rxe->peer->flags & EFA_RDM_PEER_MY_AV_INDEX_IN_PEER_AV_SET) {
+		base_hdr->flags |= EFA_RDM_PKT_MY_AV_INDEX_IN_PEER_AV_SET;
+		base_hdr->my_av_index_in_peer_av = rxe->peer->my_av_index_in_peer_av;
+	}
 
 	receipt_hdr = efa_rdm_pke_get_receipt_hdr(pkt_entry);
 	receipt_hdr->type = EFA_RDM_RECEIPT_PKT;
@@ -765,12 +807,19 @@ void efa_rdm_pke_handle_receipt_recv(struct efa_rdm_pke *pkt_entry)
  */
 int efa_rdm_pke_init_atomrsp(struct efa_rdm_pke *pkt_entry, struct efa_rdm_ope *rxe)
 {
+	struct efa_rdm_base_hdr *base_hdr;
 	struct efa_rdm_atomrsp_pkt *atomrsp_pkt;
 	struct efa_rdm_atomrsp_hdr *atomrsp_hdr;
 
 	assert(rxe->atomrsp_data);
 	pkt_entry->addr = rxe->addr;
 	pkt_entry->ope = rxe;
+
+	base_hdr = (struct efa_rdm_base_hdr *) pkt_entry;
+	if (rxe->peer->flags & EFA_RDM_PEER_MY_AV_INDEX_IN_PEER_AV_SET) {
+		base_hdr->flags |= EFA_RDM_PKT_MY_AV_INDEX_IN_PEER_AV_SET;
+		base_hdr->my_av_index_in_peer_av = rxe->peer->my_av_index_in_peer_av;
+	}
 
 	atomrsp_pkt = (struct efa_rdm_atomrsp_pkt *)pkt_entry->wiredata;
 	atomrsp_hdr = &atomrsp_pkt->hdr;
