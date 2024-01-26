@@ -36,7 +36,7 @@ ssize_t efa_rdm_pke_init_handshake(struct efa_rdm_pke *pkt_entry,
 	handshake_hdr->version = EFA_RDM_PROTOCOL_VERSION;
 	handshake_hdr->flags = 0;
 	handshake_hdr->peer_av_index_in_my_av = addr;
-	EFA_WARN(FI_LOG_CQ, "Sending handshake pkt with peer_av_index_in_my_av to %ld\n", addr);
+	EFA_DBG(FI_LOG_CQ, "Sending handshake pkt with peer_av_index_in_my_av to %ld\n", addr);
 
 	nex = (EFA_RDM_NUM_EXTRA_FEATURE_OR_REQUEST-1)/64 + 1;
 	/*
@@ -88,9 +88,6 @@ void efa_rdm_pke_handle_handshake_recv(struct efa_rdm_pke *pkt_entry)
 	uint64_t *host_id_ptr;
 
 	assert(pkt_entry->addr != FI_ADDR_NOTAVAIL);
-	EFA_DBG(FI_LOG_CQ,
-		"HANDSHAKE received from %" PRIu64 "\n", pkt_entry->addr);
-
 	peer = efa_rdm_ep_get_peer(pkt_entry->ep, pkt_entry->addr);
 	assert(peer);
 
@@ -98,7 +95,11 @@ void efa_rdm_pke_handle_handshake_recv(struct efa_rdm_pke *pkt_entry)
 
 	peer->my_av_index_in_peer_av = handshake_pkt->peer_av_index_in_my_av;
 	peer->my_av_index_in_peer_av_set = true;
-	EFA_WARN(FI_LOG_CQ, "Received handshake pkt with my_av_index_in_peer_av to %ld\n", handshake_pkt->peer_av_index_in_my_av);
+
+	EFA_DBG(FI_LOG_CQ,
+		"HANDSHAKE received from %" PRIu64
+		"with my_av_index_in_peer_av %" PRIu64 "\n",
+		pkt_entry->addr, handshake_pkt->peer_av_index_in_my_av);
 
 	/* nextra_p3 is number of members in extra_info plus 3.
 	 * See section 2.1 of protocol v4 document for detail

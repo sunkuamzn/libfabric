@@ -470,9 +470,10 @@ static inline void efa_rdm_ep_poll_ibv_cq(struct efa_rdm_ep *ep, size_t cqe_to_p
 
 			base_hdr = efa_rdm_pke_get_base_hdr(pkt_entry);
 
-			if (OFI_LIKELY(base_hdr->flags | EFA_RDM_PKT_MY_AV_INDEX_IN_PEER_AV_SET)) {
+			if (OFI_LIKELY(base_hdr->flags & EFA_RDM_PKT_MY_AV_INDEX_IN_PEER_AV_SET)) {
 				pkt_entry->addr = base_hdr->my_av_index_in_peer_av;
 			} else {
+				EFA_DBG(FI_LOG_CQ, "Received pkt without peer's AV index in my AV\n");
 				pkt_entry->addr = efa_av_reverse_lookup_rdm(efa_av, ibv_wc_read_slid(ep->ibv_cq_ex),
 									ibv_wc_read_src_qp(ep->ibv_cq_ex), pkt_entry);
 
