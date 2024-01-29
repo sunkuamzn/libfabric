@@ -146,32 +146,34 @@ fi_addr_t efa_av_reverse_lookup_rdm(struct efa_av *av, uint16_t ahn, uint16_t qp
 	if (OFI_UNLIKELY(!cur_entry))
 		return FI_ADDR_NOTAVAIL;
 
-	if (!pkt_entry) {
-		/* There is no packet entry to extract connid from when we get an
-		   IBV_WC_RECV_RDMA_WITH_IMM completion from rdma-core. */
-		return cur_entry->conn->fi_addr;
-	}
+	return cur_entry->conn->fi_addr;
 
-	connid = efa_rdm_pke_connid_ptr(pkt_entry);
-	if (!connid) {
-		EFA_WARN_ONCE(FI_LOG_EP_CTRL,
-			     "An incoming packet does NOT have connection ID in its header.\n"
-			     "This means the peer is using an older version of libfabric.\n"
-			     "The communication can continue but it is encouraged to use\n"
-			     "a newer version of libfabric\n");
-		return cur_entry->conn->fi_addr;
-	}
+	// if (!pkt_entry) {
+	// 	/* There is no packet entry to extract connid from when we get an
+	// 	   IBV_WC_RECV_RDMA_WITH_IMM completion from rdma-core. */
+	// 	return cur_entry->conn->fi_addr;
+	// }
 
-	if (OFI_LIKELY(*connid == cur_entry->conn->ep_addr->qkey))
-		return cur_entry->conn->fi_addr;
+	// connid = efa_rdm_pke_connid_ptr(pkt_entry);
+	// if (!connid) {
+	// 	EFA_WARN_ONCE(FI_LOG_EP_CTRL,
+	// 		     "An incoming packet does NOT have connection ID in its header.\n"
+	// 		     "This means the peer is using an older version of libfabric.\n"
+	// 		     "The communication can continue but it is encouraged to use\n"
+	// 		     "a newer version of libfabric\n");
+	// 	return cur_entry->conn->fi_addr;
+	// }
 
-	/* the packet is from a previous peer, look for its address from the prv_reverse_av */
-	prv_key.ahn = ahn;
-	prv_key.qpn = qpn;
-	prv_key.connid = *connid;
-	HASH_FIND(hh, av->prv_reverse_av, &prv_key, sizeof(prv_key), prv_entry);
+	// if (OFI_LIKELY(*connid == cur_entry->conn->ep_addr->qkey))
+	// 	return cur_entry->conn->fi_addr;
 
-	return OFI_LIKELY(!!prv_entry) ? prv_entry->conn->fi_addr : FI_ADDR_NOTAVAIL;
+	// /* the packet is from a previous peer, look for its address from the prv_reverse_av */
+	// prv_key.ahn = ahn;
+	// prv_key.qpn = qpn;
+	// prv_key.connid = *connid;
+	// HASH_FIND(hh, av->prv_reverse_av, &prv_key, sizeof(prv_key), prv_entry);
+
+	// return OFI_LIKELY(!!prv_entry) ? prv_entry->conn->fi_addr : FI_ADDR_NOTAVAIL;
 }
 
 static inline int efa_av_is_valid_address(struct efa_ep_addr *addr)
