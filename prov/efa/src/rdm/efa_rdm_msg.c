@@ -152,6 +152,11 @@ ssize_t efa_rdm_msg_generic_send(struct efa_rdm_ep *ep, struct efa_rdm_peer *pee
 	struct efa_rdm_ope *txe;
 	struct util_srx_ctx *srx_ctx;
 
+	EFA_INFO(FI_LOG_EP_DATA,
+	       "send starts, iov_len: %lu tag: %lx op: %x flags: %lx, context %p\n",
+	       ofi_total_iov_len(msg->msg_iov, msg->iov_count),
+	       tag, op, flags, msg->context);
+
 	srx_ctx = efa_rdm_ep_get_peer_srx_ctx(ep);
 
 	assert(msg->iov_count <= ep->tx_iov_limit);
@@ -160,12 +165,14 @@ ssize_t efa_rdm_msg_generic_send(struct efa_rdm_ep *ep, struct efa_rdm_peer *pee
 	ofi_genlock_lock(srx_ctx->lock);
 
 	if (peer->flags & EFA_RDM_PEER_IN_BACKOFF) {
+		EFA_INFO(FI_LOG_EP_CTRL, "return EAGAIN due to peer %lu in rnr backoff\n", msg->addr);
 		err = -FI_EAGAIN;
 		goto out;
 	}
 
 	txe = efa_rdm_ep_alloc_txe(ep, peer, msg, op, tag, flags);
 	if (OFI_UNLIKELY(!txe)) {
+		EFA_INFO(FI_LOG_EP_CTRL, "return EAGAIN due to txe alloc failed\n");
 		err = -FI_EAGAIN;
 		goto out;
 	}
@@ -202,6 +209,10 @@ ssize_t efa_rdm_msg_generic_send(struct efa_rdm_ep *ep, struct efa_rdm_peer *pee
 out:
 	ofi_genlock_unlock(srx_ctx->lock);
 	efa_perfset_end(ep, perf_efa_tx);
+	EFA_INFO(FI_LOG_EP_DATA,
+	       "send returns %ld, iov_len: %lu tag: %lx op: %x flags: %lx, context %p\n",
+	       err, ofi_total_iov_len(msg->msg_iov, msg->iov_count),
+	       tag, op, flags, msg->context);
 	return err;
 }
 
@@ -914,10 +925,10 @@ ssize_t efa_rdm_msg_generic_recv(struct efa_rdm_ep *ep, const struct fi_msg *msg
 
 	efa_perfset_start(ep, perf_efa_recv);
 
-	EFA_DBG(FI_LOG_EP_DATA,
-	       "%s: iov_len: %lu tag: %lx ignore: %lx op: %x flags: %lx\n",
-	       __func__, ofi_total_iov_len(msg->msg_iov, msg->iov_count), tag, ignore,
-	       op, flags);
+	EFA_INFO(FI_LOG_EP_DATA,
+		"recv starts, iov_len: %lu tag: %lx ignore: %lx op: %x flags: %lx, context: %p\n",
+		ofi_total_iov_len(msg->msg_iov, msg->iov_count),
+		tag, ignore, op, flags, msg->context);
 
 	efa_rdm_tracepoint(recv_begin_msg_context, (size_t) msg->context, (size_t) msg->addr);
 
@@ -948,6 +959,10 @@ ssize_t efa_rdm_msg_generic_recv(struct efa_rdm_ep *ep, const struct fi_msg *msg
 
 out:
 	efa_perfset_end(ep, perf_efa_recv);
+	EFA_INFO(FI_LOG_EP_DATA,
+		"recv returns %ld, iov_len: %lu tag: %lx ignore: %lx op: %x flags: %lx, context: %p\n",
+		ret, ofi_total_iov_len(msg->msg_iov, msg->iov_count),
+		tag, ignore, op, flags, msg->context);
 	return ret;
 }
 
