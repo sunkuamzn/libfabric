@@ -92,19 +92,31 @@ static ssize_t smr_generic_sendmsg(struct smr_ep *ep, const struct iovec *iov,
 
 	assert(iov_count <= SMR_IOV_LIMIT);
 
+	FI_INFO(&smr_prov, FI_LOG_EP_CTRL,
+			"send starts iov_len: %lu tag: %lx op: %x flags: %lx, context: %p\n",
+			ofi_total_iov_len(iov, iov_count),
+			tag, op, op_flags, context);
 	id = smr_verify_peer(ep, addr);
-	if (id < 0)
-		return -FI_EAGAIN;
+	if (id < 0) {
+		FI_INFO(&smr_prov, FI_LOG_EP_CTRL, "return EAGAIN due to peer %lu isn't verified\n", addr);
+		ret = -FI_EAGAIN;
+		goto out;
+	}
 
 	peer_id = smr_peer_data(ep->region)[id].addr.id;
 	peer_smr = smr_peer_region(ep->region, id);
 
-	if (smr_peer_data(ep->region)[id].sar_status)
+	if (smr_peer_data(ep->region)[id].sar_status) {
+		FI_INFO(&smr_prov, FI_LOG_EP_CTRL, "return EAGAIN due to peer %lu sar status is non-zero\n", addr);
 		return -FI_EAGAIN;
+		goto out;
+	}
 
 	ret = smr_cmd_queue_next(smr_cmd_queue(peer_smr), &ce, &pos);
-	if (ret == -FI_ENOENT)
-		return -FI_EAGAIN;
+	if (ret == -FI_ENOENT) {
+		FI_INFO(&smr_prov, FI_LOG_EP_CTRL, "return FI_ENOENT due to peer %lu smr queue has no entry\n", addr);
+		goto out;
+	}
 
 	ofi_genlock_lock(&ep->util_ep.lock);
 
@@ -135,6 +147,11 @@ static ssize_t smr_generic_sendmsg(struct smr_ep *ep, const struct iovec *iov,
 
 unlock:
 	ofi_genlock_unlock(&ep->util_ep.lock);
+out:
+	FI_DBG(&smr_prov, FI_LOG_EP_CTRL,
+			"send returns %ld, iov_len: %lu tag: %lx op: %x flags: %lx, context: %p\n",
+			ret, ofi_total_iov_len(iov, iov_count),
+			tag, op, op_flags, context);
 	return ret;
 }
 
@@ -196,31 +213,49 @@ static ssize_t smr_generic_inject(struct fid_ep *ep_fid, const void *buf,
 
 	ep = container_of(ep_fid, struct smr_ep, util_ep.ep_fid.fid);
 
+	FI_INFO(&smr_prov, FI_LOG_EP_CTRL,
+			"inject starts iov_len: %lu tag: %lx op: %x flags: %lx, context: %p\n",
+			len, tag, op, op_flags, NULL);
+
 	id = smr_verify_peer(ep, dest_addr);
-	if (id < 0)
+	if (id < 0) {
+		FI_INFO(&smr_prov, FI_LOG_EP_CTRL, "return EAGAIN due to peer %lu isn't verified\n", dest_addr);
 		return -FI_EAGAIN;
+	}
 
 	peer_id = smr_peer_data(ep->region)[id].addr.id;
 	peer_smr = smr_peer_region(ep->region, id);
 
-	if (smr_peer_data(ep->region)[id].sar_status)
-		return -FI_EAGAIN;
+	if (smr_peer_data(ep->region)[id].sar_status) {
+		FI_INFO(&smr_prov, FI_LOG_EP_CTRL, "return EAGAIN due to peer %lu sar status is non-zero\n", dest_addr);
+		ret = -FI_EAGAIN;
+		goto out;
+	}
 
 	ret = smr_cmd_queue_next(smr_cmd_queue(peer_smr), &ce, &pos);
-	if (ret == -FI_ENOENT)
-		return -FI_EAGAIN;
+	if (ret == -FI_ENOENT) {
+		FI_INFO(&smr_prov, FI_LOG_EP_CTRL, "return EAGAIN due to peer %lu smr queue has no entry\n", dest_addr);
+		ret = -FI_EAGAIN;
+		goto out;
+	}
 
 	proto = len <= SMR_MSG_DATA_LEN ? smr_src_inline : smr_src_inject;
 	ret = smr_proto_ops[proto](ep, peer_smr, id, peer_id, op, tag, data,
 			op_flags, NULL, &msg_iov, 1, len, NULL, &ce->cmd);
 	if (ret) {
 		smr_cmd_queue_discard(ce, pos);
-		return -FI_EAGAIN;
+		FI_INFO(&smr_prov, FI_LOG_EP_CTRL, "return EAGAIN due to peer %lu smr_proto_ops returns non-zero\n", dest_addr);
+		ret = -FI_EAGAIN;
+		goto out;
 	}
 	smr_cmd_queue_commit(ce, pos);
 	ofi_ep_peer_tx_cntr_inc(&ep->util_ep, op);
 
-	return FI_SUCCESS;
+out:
+	FI_INFO(&smr_prov, FI_LOG_EP_CTRL,
+			"inject returns %ld, iov_len: %lu tag: %lx op: %x flags: %lx, context: %p\n",
+			ret, len, tag, op, op_flags, NULL);
+	return ret;
 }
 
 static ssize_t smr_inject(struct fid_ep *ep_fid, const void *buf, size_t len,

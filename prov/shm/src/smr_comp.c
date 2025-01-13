@@ -45,6 +45,9 @@ int smr_complete_tx(struct smr_ep *ep, void *context, uint32_t op,
 	if (!(flags & FI_COMPLETION))
 		return 0;
 
+	FI_INFO(&smr_prov, FI_LOG_EP_CTRL,
+			"write tx completion for context %p\n",
+			context);
 	return ofi_peer_cq_write(ep->util_ep.tx_cq, context,
 				 ofi_tx_cq_flags(op), 0, NULL, 0, 0,
 				 FI_ADDR_NOTAVAIL);
@@ -74,6 +77,10 @@ int smr_complete_rx(struct smr_ep *ep, void *context, uint32_t op,
 		return 0;
 
 	flags &= ~FI_COMPLETION;
+
+	FI_INFO(&smr_prov, FI_LOG_EP_CTRL,
+			"write rx completion for context %p, len %zu, tag: %lx\n",
+			context, len, tag);
 
 	return ofi_peer_cq_write(ep->util_ep.rx_cq, context, flags, len, buf,
 				 data, tag, ep->region->map->peers[id].fiaddr);
