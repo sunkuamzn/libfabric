@@ -775,12 +775,12 @@ void efa_rdm_rxe_report_completion(struct efa_rdm_ope *rxe)
 	if (!(rxe->internal_flags & EFA_RDM_RXE_RECV_CANCEL) &&
 	    (ofi_need_completion(cq_flags, rxe->fi_flags) ||
 	     (rxe->cq_entry.flags & FI_MULTI_RECV))) {
-		EFA_DBG(FI_LOG_CQ,
+		EFA_INFO(FI_LOG_CQ,
 		       "Writing recv completion for rxe from peer: %"
 		       PRIu64 " rx_id: %" PRIu32 " msg_id: %" PRIu32
-		       " tag: %lx total_len: %" PRIu64 "\n",
+		       " tag: %lx total_len: %" PRIu64 "\n context: %p",
 		       rxe->addr, rxe->rx_id, rxe->msg_id,
-		       rxe->cq_entry.tag, rxe->total_len);
+		       rxe->cq_entry.tag, rxe->total_len, rxe->cq_entry.op_context);
 
 		efa_rdm_tracepoint(recv_end,
 			    rxe->msg_id, (size_t) rxe->cq_entry.op_context,
@@ -875,12 +875,12 @@ void efa_rdm_txe_report_completion(struct efa_rdm_ope *txe)
 
 	assert(txe->type == EFA_RDM_TXE);
 	if (efa_rdm_txe_should_update_cq(txe)) {
-		EFA_DBG(FI_LOG_CQ,
+		EFA_INFO(FI_LOG_CQ,
 		       "Writing send completion for txe to peer: %" PRIu64
 		       " tx_id: %" PRIu32 " msg_id: %" PRIu32 " tag: %lx len: %"
-		       PRIu64 "\n",
+		       PRIu64 "\n context: %p",
 		       txe->addr, txe->tx_id, txe->msg_id,
-		       txe->cq_entry.tag, txe->total_len);
+		       txe->cq_entry.tag, txe->total_len, txe->cq_entry.op_context);
 
 
 	efa_rdm_tracepoint(send_end,
