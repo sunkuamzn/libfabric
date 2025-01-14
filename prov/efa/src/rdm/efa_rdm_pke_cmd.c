@@ -386,8 +386,8 @@ void efa_rdm_pke_handle_tx_error(struct efa_rdm_pke *pkt_entry, int err, int pro
 
 	assert(pkt_entry->alloc_type == EFA_RDM_PKE_FROM_EFA_TX_POOL);
 
-	EFA_DBG(FI_LOG_CQ, "Packet send error: %s (%d)\n",
-	        efa_strerror(prov_errno), prov_errno);
+	EFA_INFO(FI_LOG_CQ, "Packet send error: %s (%d) context %p\n",
+	        efa_strerror(prov_errno), prov_errno, pkt_entry->ope->cq_entry.op_context);
 
 	ep = pkt_entry->ep;
 	efa_rdm_ep_record_tx_op_completed(ep, pkt_entry);
@@ -526,6 +526,14 @@ void efa_rdm_pke_handle_tx_error(struct efa_rdm_pke *pkt_entry, int err, int pro
 void efa_rdm_pke_handle_send_completion(struct efa_rdm_pke *pkt_entry)
 {
 	struct efa_rdm_ep *ep;
+
+	struct efa_rdm_ope *ope = pkt_entry->ope;
+	EFA_INFO(FI_LOG_CQ,
+	       "Received send completion from rdma core for peer: %" PRIu64
+	       " rx_id: %" PRIu32 " msg_id: %" PRIu32 " tag: %lx len: %"
+	       PRIu64 "\n context: %p",
+	       ope->addr, ope->rx_id, ope->msg_id,
+	       ope->cq_entry.tag, ope->total_len, ope->cq_entry.op_context);
 
 	ep = pkt_entry->ep;
 	/*
@@ -668,8 +676,8 @@ void efa_rdm_pke_handle_rx_error(struct efa_rdm_pke *pkt_entry, int err, int pro
 	assert(ep->efa_rx_pkts_posted > 0);
 	ep->efa_rx_pkts_posted--;
 
-	EFA_DBG(FI_LOG_CQ, "Packet receive error: %s (%d)\n",
-	        efa_strerror(prov_errno), prov_errno);
+	EFA_INFO(FI_LOG_CQ, "Packet receive error: %s (%d) context %p\n",
+	        efa_strerror(prov_errno), prov_errno, pkt_entry->ope->cq_entry.op_context);
 
 	/*
 	 * pkes posted by efa_rdm_ep_bulk_post_internal_rx_pkts
@@ -902,6 +910,14 @@ void efa_rdm_pke_handle_recv_completion(struct efa_rdm_pke *pkt_entry)
 
 	assert(ep->efa_rx_pkts_posted > 0);
 	ep->efa_rx_pkts_posted--;
+
+	struct efa_rdm_ope *ope = pkt_entry->ope;
+	EFA_INFO(FI_LOG_CQ,
+	       "Received recive completion from rdma core for peer: %" PRIu64
+	       " tx_id: %" PRIu32 " msg_id: %" PRIu32 " tag: %lx len: %"
+	       PRIu64 "\n context: %p",
+	       ope->addr, ope->tx_id, ope->msg_id,
+	       ope->cq_entry.tag, ope->total_len, ope->cq_entry.op_context);
 
 	base_hdr = efa_rdm_pke_get_base_hdr(pkt_entry);
 	pkt_type = base_hdr->type;

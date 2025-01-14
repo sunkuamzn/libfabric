@@ -561,6 +561,14 @@ void efa_rdm_pke_handle_rma_completion(struct efa_rdm_pke *context_pkt_entry)
 
 	rma_context_pkt = (struct efa_rdm_rma_context_pkt *)context_pkt_entry->wiredata;
 
+	struct efa_rdm_ope *ope = context_pkt_entry->ope;
+	EFA_INFO(FI_LOG_CQ,
+	       "Received RMA completion from rdma core for peer: %" PRIu64
+	       " tx_id: %" PRIu32 " rx_id: %" PRIu32 " msg_id: %" PRIu32 " tag: %lx len: %"
+	       PRIu64 "\n context: %p",
+	       ope->addr, ope->tx_id, ope->rx_id, ope->msg_id,
+	       ope->cq_entry.tag, ope->total_len, ope->cq_entry.op_context);
+
 	switch (rma_context_pkt->context_type) {
 	case EFA_RDM_RDMA_WRITE_CONTEXT:
 		txe = context_pkt_entry->ope;
