@@ -138,6 +138,13 @@ ssize_t efa_rdm_msg_post_rtm(struct efa_rdm_ep *ep, struct efa_rdm_ope *txe)
 	rtm_type = efa_rdm_msg_select_rtm(ep, txe, use_p2p);
 	assert(rtm_type >= EFA_RDM_REQ_PKT_BEGIN);
 
+	EFA_INFO(FI_LOG_CQ,
+	       "Choosing protocol %d for message to peer: %" PRIu64
+	       " tx_id: %" PRIu32 " msg_id: %" PRIu32 " tag: %lx len: %"
+	       PRIu64 "\n context: %p", rtm_type,
+	       txe->addr, txe->tx_id, txe->msg_id,
+	       txe->cq_entry.tag, txe->total_len, txe->cq_entry.op_context);
+
 	if (rtm_type < EFA_RDM_EXTRA_REQ_PKT_BEGIN) {
 		/* rtm requires only baseline feature, which peer should always support. */
 		return efa_rdm_ope_post_send(txe, rtm_type);

@@ -282,6 +282,14 @@ static void efa_rdm_cq_handle_recv_completion(struct efa_ibv_cq *ibv_cq, struct 
 	bool has_imm_data = false;
 	struct ibv_cq_ex *ibv_cq_ex = ibv_cq->ibv_cq_ex;
 
+	struct efa_rdm_ope *ope = pkt_entry->ope;
+	EFA_INFO(FI_LOG_CQ,
+	       "Received recive completion from rdma core for peer: %" PRIu64
+	       " tx_id: %" PRIu32 " msg_id: %" PRIu32 " tag: %lx len: %"
+	       PRIu64 "\n context: %p",
+	       ope->addr, ope->tx_id, ope->msg_id,
+	       ope->cq_entry.tag, ope->total_len, ope->cq_entry.op_context);
+
 	if (pkt_entry->alloc_type == EFA_RDM_PKE_FROM_USER_RX_POOL) {
 		assert(ep->user_rx_pkts_posted > 0);
 		ep->user_rx_pkts_posted--;
