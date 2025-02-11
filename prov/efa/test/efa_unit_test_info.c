@@ -71,6 +71,36 @@ void test_info_rdm_attributes()
 }
 
 /**
+ * @brief Verify that efa rdm path fi_info objects have some expected values
+ * with fork support enabled
+ */
+void test_info_rdm_attributes_fork_support()
+{
+	struct fi_info *hints, *info = NULL, *info_head = NULL;
+	int err;
+
+	hints = efa_unit_test_alloc_hints(FI_EP_RDM, EFA_FABRIC_NAME);
+	assert_non_null(hints);
+
+	setenv("FI_EFA_FORK_SAFE", "1", 1);
+
+	err = fi_getinfo(FI_VERSION(1,6), NULL, NULL, 0, hints, &info_head);
+	assert_int_equal(err, 0);
+	assert_non_null(info_head);
+
+	for (info = info_head; info; info = info->next) {
+		assert_true(!strcmp(info->fabric_attr->name, EFA_FABRIC_NAME));
+		assert_true(strstr(info->domain_attr->name, "rdm"));
+		assert_int_equal(info->ep_attr->max_msg_size, UINT64_MAX);
+#if HAVE_CUDA || HAVE_NEURON || HAVE_SYNAPSEAI
+		assert_true(info->caps | FI_HMEM);
+#endif
+
+	unsetenv("FI_EFA_FORK_SAFE");
+	}
+}
+
+/**
  * @brief Verify that efa dgram path fi_info objects have some expected values
  */
 void test_info_dgram_attributes()

@@ -164,6 +164,7 @@ void test_ibv_cq_ex_read_ignore_removed_peer();
 /* begin efa_unit_test_info.c */
 void test_info_open_ep_with_wrong_info();
 void test_info_rdm_attributes();
+void test_info_rdm_attributes_fork_support();
 void test_info_dgram_attributes();
 void test_info_direct_attributes();
 void test_info_direct_hmem_support_p2p();
