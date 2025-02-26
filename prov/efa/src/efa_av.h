@@ -26,7 +26,7 @@ struct efa_conn {
 	 * for FI_AV_MAP, fi_addr is pointer to efa_conn; */
 	fi_addr_t		fi_addr;
 	fi_addr_t		util_av_fi_addr;
-	struct efa_rdm_peer	rdm_peer;
+	struct efa_rdm_peer	*rdm_peer;
 };
 
 struct efa_av_entry {
@@ -73,6 +73,7 @@ struct efa_av {
 	struct efa_ah *ah_map;
 	struct util_av util_av;
 	enum fi_ep_type ep_type;
+	struct ofi_bufpool *rdm_peer_pool;
 };
 
 int efa_av_open(struct fid_domain *domain_fid, struct fi_av_attr *attr,
