@@ -222,6 +222,8 @@ struct ft_opts {
 	uint64_t device;
 	enum fi_threading threading;
 
+	int num_ep;
+
 	char **argv;
 };
 
@@ -331,7 +333,8 @@ extern char default_port[8];
 		.device = 0, \
 		.argc = argc, .argv = argv, \
 		.address_format = FI_FORMAT_UNSPEC, \
-		.threading = FI_THREAD_DOMAIN \
+		.threading = FI_THREAD_DOMAIN, \
+		.num_ep = 1 \
 	}
 
 #define FT_STR_LEN 32
