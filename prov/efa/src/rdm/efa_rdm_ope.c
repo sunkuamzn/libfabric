@@ -468,8 +468,10 @@ ssize_t efa_rdm_ope_prepare_to_post_send(struct efa_rdm_ope *ope,
 		- ep->efa_outstanding_tx_ops
 		- ep->efa_rnr_queued_pkt_cnt;
 
-	if (available_tx_pkts == 0)
+	if (available_tx_pkts == 0) {
+		printf("no more tx pkts. return EAGAIN\n");
 		return -FI_EAGAIN;
+	}
 
 	if (pkt_type == EFA_RDM_CTSDATA_PKT) {
 		assert(ope->window);
@@ -1727,8 +1729,10 @@ ssize_t efa_rdm_ope_post_send(struct efa_rdm_ope *ope, int pkt_type)
 	uint64_t flags = 0;
 
 	err = efa_rdm_ope_prepare_to_post_send(ope, pkt_type, &pkt_entry_cnt, pkt_entry_data_size_vec);
-	if (err)
+	if (err) {
+		printf("prepare_to_post_send returned %d\n", err);
 		return err;
+	}
 	assert(pkt_entry_cnt <= EFA_RDM_EP_MAX_WR_PER_IBV_POST_SEND);
 
 	ep = ope->ep;

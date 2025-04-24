@@ -67,6 +67,7 @@ static int send_loop(size_t size) {
 
 		if (ret < 0) {
 			if (ret == -FI_EAGAIN) {
+				printf("Received EAGAIN after posting %d sends\n", q_opts);
 				ret = ft_get_tx_comp(tx_seq);
 				if (ret)
 					return ret;
@@ -77,6 +78,7 @@ static int send_loop(size_t size) {
 		}
 	}
 
+	printf("Done posting sends\n");
 	ret = ft_get_tx_comp(tx_seq);
 	if (ret)
 		return ret;
@@ -111,6 +113,7 @@ static int receive_loop(size_t size)
 
 		if (ret < 0) {
 			if (ret == -FI_EAGAIN) {
+				printf("Received EAGAIN after posting %d receives\n", q_opts);
 				if (delay > 0)
 					sleep(delay);
 
@@ -124,6 +127,7 @@ static int receive_loop(size_t size)
 		}
 	}
 
+	printf("Done posting receives\n");
 	if (delay > 0)
 		sleep(delay);
 

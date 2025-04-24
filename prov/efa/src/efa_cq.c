@@ -248,6 +248,7 @@ efa_cq_proc_ibv_recv_rdma_with_imm_completion(struct efa_base_ep *base_ep,
  */
 void efa_cq_poll_ibv_cq(ssize_t cqe_to_process, struct efa_ibv_cq *ibv_cq)
 {
+	// printf("polling ibv cq in the efa-direct path\n");
 	bool should_end_poll = false;
 	struct efa_base_ep *base_ep;
 	struct efa_cq *cq;

@@ -392,8 +392,10 @@ ssize_t efa_rdm_pke_sendv(struct efa_rdm_pke **pkt_entry_vec,
 	assert(pkt_entry_vec[0]->ope);
 	peer = pkt_entry_vec[0]->ope->peer;
 	assert(peer);
-	if (peer->flags & EFA_RDM_PEER_IN_BACKOFF)
+	if (peer->flags & EFA_RDM_PEER_IN_BACKOFF) {
+		printf("peer in backoff in pke_sendv. return EAGAIN\n");
 		return -FI_EAGAIN;
+	}
 
 	conn = efa_av_addr_to_conn(ep->base_ep.av, pkt_entry_vec[0]->addr);
 	assert(conn && conn->ep_addr);

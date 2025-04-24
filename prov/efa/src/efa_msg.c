@@ -145,6 +145,8 @@ static inline ssize_t efa_post_recv(struct efa_base_ep *base_ep, const struct fi
 		 * Meanwhile, this function return a negative errno.
 		 * So, we do the conversion here.
 		 */
+		if (err == ENOMEM)
+			printf("got ENOMEM from rdma-core, returning EAGAIN\n");
 		err = (err == ENOMEM) ? -FI_EAGAIN : -err;
 	}
 
@@ -293,6 +295,8 @@ static inline ssize_t efa_post_send(struct efa_base_ep *base_ep, const struct fi
 
 	if (!(flags & FI_MORE)) {
 		ret = ibv_wr_complete(qp->ibv_qp_ex);
+		if (ret == ENOMEM)
+			printf("got ENOMEM from rdma-core, returning EAGAIN\n");
 		if (OFI_UNLIKELY(ret))
 			ret = (ret == ENOMEM) ? -FI_EAGAIN : -ret;
 		base_ep->is_wr_started = false;

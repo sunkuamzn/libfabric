@@ -423,6 +423,7 @@ static int efa_rdm_cq_match_ep(struct dlist_entry *item, const void *ep)
  */
 void efa_rdm_cq_poll_ibv_cq(ssize_t cqe_to_process, struct efa_ibv_cq *ibv_cq)
 {
+	// printf("polling ibv cq in the rdm path\n");
 	bool should_end_poll = false;
 	/* Initialize an empty ibv_poll_cq_attr struct for ibv_start_poll.
 	 * EFA expects .comp_mask = 0, or otherwise returns EINVAL.
@@ -667,7 +668,7 @@ int efa_rdm_cq_open(struct fid_domain *domain, struct fi_cq_attr *attr,
 	efa_domain = container_of(domain, struct efa_domain,
 				  util_domain.domain_fid);
 	/* Override user cq size if it's less than recommended cq size */
-	attr->size = MAX(efa_domain->rdm_cq_size, attr->size);
+	// attr->size = MAX(efa_domain->rdm_cq_size, attr->size);
 
 	dlist_init(&cq->ibv_cq_poll_list);
 	cq->need_to_scan_ep_list = false;

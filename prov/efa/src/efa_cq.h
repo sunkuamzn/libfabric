@@ -137,6 +137,7 @@ static inline int efa_cq_ibv_cq_ex_open(struct fi_cq_attr *attr,
 		.wc_flags = IBV_WC_STANDARD_FLAGS,
 		.comp_mask = 0,
 	};
+	printf("cqe size %d\n", init_attr_ex.cqe);
 
 	struct efadv_cq_init_attr efadv_cq_init_attr = {
 		.comp_mask = 0,

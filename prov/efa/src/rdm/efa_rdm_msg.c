@@ -174,12 +174,14 @@ ssize_t efa_rdm_msg_generic_send(struct efa_rdm_ep *ep, struct efa_rdm_peer *pee
 	ofi_genlock_lock(srx_ctx->lock);
 
 	if (peer->flags & EFA_RDM_PEER_IN_BACKOFF) {
+		printf("peer in backoff. returning EAGAIN\n");
 		err = -FI_EAGAIN;
 		goto out;
 	}
 
 	txe = efa_rdm_ep_alloc_txe(ep, peer, msg, op, tag, flags);
 	if (OFI_UNLIKELY(!txe)) {
+		printf("couldn't allocate txe. returning EAGAIN\n");
 		err = -FI_EAGAIN;
 		goto out;
 	}
