@@ -248,7 +248,7 @@ int efa_rdm_pke_fill_data(struct efa_rdm_pke *pkt_entry,
  *
  * @param[in,out]	pkt_entry	packet entry
  */
-void efa_rdm_pke_handle_sent(struct efa_rdm_pke *pkt_entry, int pkt_type)
+void efa_rdm_pke_handle_sent(struct efa_rdm_pke *pkt_entry, int pkt_type, struct efa_rdm_peer *peer)
 {
 	switch (pkt_type) {
 	case EFA_RDM_READRSP_PKT:
@@ -288,7 +288,7 @@ void efa_rdm_pke_handle_sent(struct efa_rdm_pke *pkt_entry, int pkt_type)
 		break;
 	case EFA_RDM_RUNTREAD_MSGRTM_PKT:
 	case EFA_RDM_RUNTREAD_TAGRTM_PKT:
-		efa_rdm_pke_handle_runtread_rtm_sent(pkt_entry);
+		efa_rdm_pke_handle_runtread_rtm_sent(pkt_entry, peer);
 		break;
 	case EFA_RDM_EAGER_RTW_PKT:
 		/* nothing to do when EAGER RTW is sent */
@@ -616,7 +616,7 @@ void efa_rdm_pke_handle_send_completion(struct efa_rdm_pke *pkt_entry, struct ef
 		break;
 	case EFA_RDM_RUNTREAD_MSGRTM_PKT:
 	case EFA_RDM_RUNTREAD_TAGRTM_PKT:
-		efa_rdm_pke_handle_runtread_rtm_send_completion(pkt_entry);
+		efa_rdm_pke_handle_runtread_rtm_send_completion(pkt_entry, peer);
 		break;
 	case EFA_RDM_EAGER_RTW_PKT:
 		efa_rdm_pke_handle_eager_rtw_send_completion(pkt_entry);
