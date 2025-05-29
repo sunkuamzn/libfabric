@@ -33,6 +33,9 @@ static fi_addr_t *remote_fiaddr;
 int num_eps = 3;
 char remote_raw_addr[FT_MAX_CTRL_MSG];
 
+static bool shared_av = false;
+int num_avs;
+
 void close_client(int i);
 int open_client(int i);
 
@@ -62,7 +65,7 @@ static void free_ep_res()
 		(void) ft_hmem_free(opts.iface, (void *) recv_bufs[i]);
 	}
 
-	for (i = 0; i < num_eps; i++) {
+	for (i = 0; i < num_avs; i++) {
 		FT_CLOSE_FID(avs[i]);
 	}
 
@@ -119,7 +122,7 @@ static int alloc_multi_ep_res()
 	send_bufs = calloc(num_eps, opts.transfer_size);
 	recv_bufs = calloc(num_eps, opts.transfer_size);
 
-	avs = calloc(num_eps, sizeof(*avs));
+	avs = calloc(num_avs, sizeof(*avs));
 
 	if (!eps || !remote_fiaddr || !send_bufs || !recv_bufs ||
 	    !send_ctx || !recv_ctx || !send_bufs || !recv_bufs ||
@@ -356,6 +359,10 @@ static int run_client(void)
 
 	pthread_join(context_cq.thread, NULL);
 
+	/* For a shared AV, close it at the end */
+	if (shared_av)
+		FT_CLOSE_FID(avs[0]);
+
 	for (i=0; i<num_eps; i++)
 		pthread_join(contexts_ep[i].thread, NULL);
 
@@ -366,6 +373,7 @@ static int run_client(void)
 int open_client(int idx)
 {
 	int ret;
+	struct fid_av *av;
 	struct fi_av_attr av_attr = {0};
 
 	if (opts.av_name) {
@@ -379,20 +387,27 @@ int open_client(int idx)
 		return ret;
 	}
 
-	ret = fi_av_open(domain, &av_attr, &avs[idx], NULL);
-	if (ret) {
-		FT_PRINTERR("fi_av_open", ret);
-		return ret;
+	if (idx < num_avs) {
+		ret = fi_av_open(domain, &av_attr, &avs[idx], NULL);
+		if (ret) {
+			FT_PRINTERR("fi_av_open", ret);
+			return ret;
+		}
 	}
 
 	/* ft_enable_ep bind the ep with cq and av before enabling */
-	ret = ft_enable_ep(eps[idx], eq, avs[idx], txcq, rxcq, NULL, NULL, NULL);
+	if (shared_av)
+		av = avs[0];
+	else
+		av = avs[idx];
+
+	ret = ft_enable_ep(eps[idx], eq, av, txcq, rxcq, NULL, NULL, NULL);
 	if (ret)
  		return ret;
 
 
 	/* Use the same remote addr we got from the persistent receiver ep */
-	ret = ft_av_insert(avs[idx], (void *)remote_raw_addr, 1, &remote_fiaddr[idx], 0, NULL);
+	ret = ft_av_insert(av, (void *)remote_raw_addr, 1, &remote_fiaddr[idx], 0, NULL);
 	if (ret)
 		return ret;
 
@@ -403,7 +418,6 @@ void close_client(int i)
 {
 	printf("closing ep %d, av %d\n", i, i);
 	FT_CLOSE_FID(eps[i]);
-	FT_CLOSE_FID(avs[i]);
 }
 
 int exchange_addresses_oob(struct fid_av *av_ptr, struct fid_ep *ep_ptr,
@@ -473,6 +487,11 @@ static int run_test(void)
 {
 	int ret;
 
+	if (shared_av)
+		num_avs = 1;
+	else
+		num_avs = num_eps;
+
 	opts.av_size = num_eps + 1;
 	ret = init_fabric();
 	if (ret)
@@ -528,6 +547,9 @@ int main(int argc, char **argv)
 			break;
 		case 'v':
 			opts.options |= FT_OPT_VERIFY_DATA;
+			break;
+		case 'A':
+			shared_av = true;
 			break;
 		case '?':
 		case 'h':
