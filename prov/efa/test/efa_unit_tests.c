@@ -73,6 +73,7 @@ static int efa_unit_test_mocks_teardown(void **state)
 		.efa_rdm_pke_proc_matched_rtm = __real_efa_rdm_pke_proc_matched_rtm,
 		.efa_rdm_ope_post_send = __real_efa_rdm_ope_post_send,
 		.efa_device_support_unsolicited_write_recv = __real_efa_device_support_unsolicited_write_recv,
+		.efa_rdm_ep_has_unfinished_send = __real_efa_rdm_ep_has_unfinished_send,
 		.ibv_is_fork_initialized = __real_ibv_is_fork_initialized,
 #if HAVE_EFADV_QUERY_MR
 		.efadv_query_mr = __real_efadv_query_mr,
@@ -109,6 +110,7 @@ int main(void)
 		cmocka_unit_test_setup_teardown(test_av_multiple_ep_efa, efa_unit_test_mocks_setup, efa_unit_test_mocks_teardown),
 		cmocka_unit_test_setup_teardown(test_av_multiple_ep_efa_direct, efa_unit_test_mocks_setup, efa_unit_test_mocks_teardown),
 		cmocka_unit_test_setup_teardown(test_av_reinsertion, efa_unit_test_mocks_setup, efa_unit_test_mocks_teardown),
+		cmocka_unit_test_setup_teardown(test_av_recv_msg_before_fi_av_insert, efa_unit_test_mocks_setup, efa_unit_test_mocks_teardown),
 		/* end efa_unit_test_av.c */
 
 		cmocka_unit_test_setup_teardown(test_efa_device_construct_error_handling, efa_unit_test_mocks_setup, efa_unit_test_mocks_teardown),

@@ -332,5 +332,141 @@ void test_av_reinsertion(struct efa_resource **state)
 
 	err = fi_av_remove(resource->av, &fi_addr, 1, 0);
 	assert_int_equal(err, 0);
-	test_av_verify_av_hash_cnt(av, 0);
+	test_av_verify_av_hash_cnt(av, 0, 0);
+}
+
+/**
+ * @brief This test simulates a packet received before the application calls
+ * fi_av_insert. It verifies that the peer is in the implicit AV after the
+ * packet is received and that the peer is moved to the xplicit AV after
+ * fi_av_insert is called. It verifies that the peer information including
+ * the next expected message id etc are also moved.
+ *
+ * @param[in]	state	struct efa_resource that is managed by the framework
+ */
+void test_av_recv_msg_before_fi_av_insert(struct efa_resource **state)
+{
+	struct efa_resource *resource = *state;
+	struct efa_rdm_pke *pkt_entry;
+	struct efa_rdm_base_hdr *base_hdr;
+	char *opt_hdr;
+	struct efa_rdm_req_opt_raw_addr_hdr *raw_addr_hdr;
+	struct efa_rdm_ep *efa_rdm_ep;
+	struct efa_rdm_cq *efa_rdm_cq;
+	struct ibv_cq_ex *ibv_cqx;
+	struct efa_ep_addr raw_addr, raw_addr_2;
+	size_t raw_addr_len = sizeof(struct efa_ep_addr);
+	fi_addr_t explicit_fi_addr, implicit_fi_addr = 0;
+	int err, numaddr;
+	struct efa_av *av;
+	struct fi_cq_data_entry cq_entry;
+	struct efa_rdm_peer *peer;
+	struct efa_rdm_rtm_base_hdr *rtm_hdr;
+	struct efa_rdm_ope *ope;
+	struct dlist_entry *entry, *tmp;
+
+	/* Disable handshake packet send */
+	g_efa_unit_test_mocks.efa_rdm_ep_has_unfinished_send = &efa_mock_efa_rdm_ep_has_unfinished_send_return_mock;
+	will_return_always(efa_mock_efa_rdm_ep_has_unfinished_send_return_mock, false);
+
+	efa_unit_test_resource_construct(resource, FI_EP_RDM, EFA_FABRIC_NAME);
+
+	av = container_of(resource->av, struct efa_av, util_av.av_fid);
+	efa_rdm_ep = container_of(resource->ep, struct efa_rdm_ep, base_ep.util_ep.ep_fid);
+
+	err = fi_getname(&resource->ep->fid, &raw_addr, &raw_addr_len);
+	assert_int_equal(err, 0);
+	raw_addr.qpn = 156;
+	raw_addr.qkey = 0x1234;
+
+	/* Simulate fi_cq_read receiving a packet from a peer not in explicit AV
+	 * Logic copied from tests in efa_unit_test_cq.c */
+	pkt_entry = efa_rdm_pke_alloc(efa_rdm_ep, efa_rdm_ep->efa_rx_pkt_pool, EFA_RDM_PKE_FROM_EFA_RX_POOL);
+	assert_non_null(pkt_entry);
+
+	/* initialize the pkt as an eager RTM packet */
+	base_hdr = (struct efa_rdm_base_hdr *) pkt_entry->wiredata;
+	base_hdr->type = EFA_RDM_EAGER_MSGRTM_PKT;
+	base_hdr->version = EFA_RDM_PROTOCOL_VERSION;
+	base_hdr->flags = 0;
+	base_hdr->flags |= EFA_RDM_REQ_OPT_RAW_ADDR_HDR;
+	opt_hdr = (char *)base_hdr + efa_rdm_pke_get_req_base_hdr_size(pkt_entry);
+	raw_addr_hdr = (struct efa_rdm_req_opt_raw_addr_hdr *)opt_hdr;
+	raw_addr_hdr->addr_len = EFA_RDM_REQ_OPT_RAW_ADDR_HDR_SIZE - sizeof(struct efa_rdm_req_opt_raw_addr_hdr);
+	memcpy(raw_addr_hdr->raw_addr, &raw_addr, sizeof(raw_addr));
+
+	rtm_hdr = (struct efa_rdm_rtm_base_hdr *)pkt_entry->wiredata;
+	rtm_hdr->flags |= EFA_RDM_REQ_MSG;
+	rtm_hdr->msg_id = 0;
+
+	efa_rdm_ep->efa_rx_pkts_posted = efa_rdm_ep_get_rx_pool_size(efa_rdm_ep);
+
+	efa_rdm_cq = container_of(resource->cq, struct efa_rdm_cq, efa_cq.util_cq.cq_fid.fid);
+	ibv_cqx = efa_rdm_cq->efa_cq.ibv_cq.ibv_cq_ex;
+
+	ibv_cqx->start_poll = &efa_mock_ibv_start_poll_return_mock;
+	ibv_cqx->end_poll = &efa_mock_ibv_end_poll_check_mock;
+	ibv_cqx->read_opcode = &efa_mock_ibv_read_opcode_return_mock;
+	ibv_cqx->read_vendor_err = &efa_mock_ibv_read_vendor_err_return_mock;
+	ibv_cqx->read_qp_num = &efa_mock_ibv_read_qp_num_return_mock;
+	ibv_cqx->read_byte_len = &efa_mock_ibv_read_byte_len_return_mock;
+	ibv_cqx->read_wc_flags = &efa_mock_ibv_read_wc_flags_return_mock;
+	ibv_cqx->read_slid = &efa_mock_ibv_read_slid_return_mock;
+	ibv_cqx->read_src_qp = &efa_mock_ibv_read_src_qp_return_mock;
+	ibv_cqx->next_poll = &efa_mock_ibv_next_poll_return_mock;
+
+	will_return(efa_mock_ibv_start_poll_return_mock, 0);
+	/* efa_base_ep_flush_cq calls ibv_start_poll twice more */
+	will_return(efa_mock_ibv_start_poll_return_mock, ENOENT);
+	will_return(efa_mock_ibv_start_poll_return_mock, ENOENT);
+
+	will_return(efa_mock_ibv_end_poll_check_mock, NULL);
+	will_return(efa_mock_ibv_read_byte_len_return_mock, pkt_entry->pkt_size);
+	will_return(efa_mock_ibv_read_wc_flags_return_mock, 0);
+	will_return(efa_mock_ibv_read_slid_return_mock, efa_rdm_ep->base_ep.self_ah->ahn);
+	will_return(efa_mock_ibv_read_src_qp_return_mock, raw_addr.qpn);
+
+	will_return_always(efa_mock_ibv_next_poll_return_mock, ENOENT);
+
+	will_return_always(efa_mock_ibv_read_opcode_return_mock, IBV_WC_RECV);
+	will_return_always(efa_mock_ibv_read_qp_num_return_mock, efa_rdm_ep->base_ep.qp->qp_num);
+	ibv_cqx->wr_id = (uintptr_t)pkt_entry;
+	ibv_cqx->status = IBV_WC_SUCCESS;
+
+	err = fi_cq_read(resource->cq, &cq_entry, 1);
+
+	/* No fi_recv posted, so we expect to get -FI_EAGAIN */
+	assert_int_equal(err, -FI_EAGAIN);
+
+	test_av_verify_av_hash_cnt(av, 0, 1);
+	peer = efa_rdm_ep_get_peer_implicit(efa_rdm_ep, implicit_fi_addr);
+	assert_int_equal(peer->conn->implicit_fi_addr, implicit_fi_addr);
+	assert_int_equal(efa_is_same_addr(&raw_addr, peer->conn->ep_addr), 1);
+	assert_int_equal(ofi_recvwin_next_exp_id((&peer->robuf)), 1);
+
+	/* Now insert the address into the AV */
+	numaddr = fi_av_insert(resource->av, &raw_addr, 1, &explicit_fi_addr, 0, NULL);
+	assert_int_equal(numaddr, 1);
+
+	err = fi_av_lookup(resource->av, explicit_fi_addr, &raw_addr_2, &raw_addr_len);
+	assert_int_equal(err, 0);
+	assert_int_equal(efa_is_same_addr(&raw_addr, &raw_addr_2), 1);
+
+	peer = efa_rdm_ep_get_peer(efa_rdm_ep, 0);
+	assert_int_equal(peer->conn->fi_addr, explicit_fi_addr);
+	assert_int_equal(efa_is_same_addr(&raw_addr, peer->conn->ep_addr), 1);
+	assert_int_equal(ofi_recvwin_next_exp_id((&peer->robuf)), 1);
+
+	test_av_verify_av_hash_cnt(av, 1, 0);
+
+	/* TODO: Remove this hack after either (1) fixing the mocking of
+	 * efa_rdm_ep_has_unfinished_send or (2) The change to not re-post
+	 * handshake packets when closing the endpoint */
+	efa_rdm_ep->efa_outstanding_tx_ops = 0;
+	uint64_t queued_ope_flags = EFA_RDM_OPE_QUEUED_CTRL | EFA_RDM_OPE_QUEUED_RNR;
+	dlist_foreach_safe(&efa_rdm_ep_domain(efa_rdm_ep)->ope_queued_list, entry, tmp) {
+		ope = container_of(entry, struct efa_rdm_ope,
+					queued_entry);
+		ope->internal_flags &= ~queued_ope_flags;
+	}
 }

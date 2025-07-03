@@ -74,6 +74,10 @@ uint32_t efa_mock_ibv_read_wc_flags_return_mock(struct ibv_cq_ex *current);
 
 uint32_t efa_mock_ibv_wc_read_imm_data_return_mock(struct ibv_cq_ex *current);
 
+uint32_t efa_mock_ibv_wc_read_byte_len(struct ibv_cq_ex *current);
+
+unsigned int efa_mock_ibv_wc_read_flags(struct ibv_cq_ex *current);
+
 bool efa_mock_efadv_wc_is_unsolicited(struct efadv_cq *efadv_cq);
 
 void efa_mock_ibv_wr_send_imm_save_wr(struct ibv_qp_ex *qp, __be32 imm_data);
@@ -94,6 +98,10 @@ int __real_efa_rdm_pke_read(struct efa_rdm_ope *ope);
 bool __real_efa_device_support_unsolicited_write_recv();
 
 int efa_mock_efa_rdm_pke_read_return_mock(struct efa_rdm_ope *ope);
+
+bool __real_efa_rdm_ep_has_unfinished_send(struct efa_rdm_ep *ep);
+
+bool efa_mock_efa_rdm_ep_has_unfinished_send_return_mock(struct efa_rdm_ep *ep);
 
 ssize_t __real_efa_rdm_pke_proc_matched_rtm(struct efa_rdm_pke *pkt_entry);
 
@@ -153,6 +161,8 @@ struct efa_unit_test_mocks
 	bool (*efa_device_support_unsolicited_write_recv)(void);
 
 	enum ibv_fork_status (*ibv_is_fork_initialized)(void);
+
+	bool (*efa_rdm_ep_has_unfinished_send)(struct efa_rdm_ep *efa_rdm_ep);
 
 #if HAVE_EFADV_QUERY_MR
 	int (*efadv_query_mr)(struct ibv_mr *ibv_mr, struct efadv_mr_attr *attr, uint32_t inlen);
