@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright Amazon.com, Inc. or its affiliates. All rights reserved. */
 
 #include "efa_unit_tests.h"
+#include "efa_rdm_cq.h"
+#include "efa_rdm_pke_req.h"
 #include "efa_av.h"
 
 /**
@@ -262,16 +264,20 @@ void test_av_multiple_ep_efa_direct(struct efa_resource **state)
 	return test_av_multiple_ep_impl(state, EFA_DIRECT_FABRIC_NAME);
 }
 
-static void test_av_verify_av_hash_cnt(struct efa_av *av, int explicit_av_count) {
+static void test_av_verify_av_hash_cnt(struct efa_av *av, int explicit_av_count, int implicit_av_count) {
 	assert_int_equal(HASH_CNT(hh, av->util_av.hash), explicit_av_count);
 	assert_int_equal(HASH_CNT(hh, av->cur_reverse_av), explicit_av_count);
 	assert_int_equal(HASH_CNT(hh, av->prv_reverse_av), 0);
+
+	assert_int_equal(HASH_CNT(hh, av->util_av_implicit.hash), implicit_av_count);
+	assert_int_equal(HASH_CNT(hh, av->cur_reverse_av_implicit), implicit_av_count);
+	assert_int_equal(HASH_CNT(hh, av->prv_reverse_av_implicit), 0);
 }
 
 /**
  * @brief This test removes a peer and inserts it again
  *
- * @param[in]	state		struct efa_resource that is managed by the framework
+ * @param[in]	state	struct efa_resource that is managed by the framework
  */
 void test_av_reinsertion(struct efa_resource **state)
 {
@@ -297,7 +303,7 @@ void test_av_reinsertion(struct efa_resource **state)
 	err = fi_av_insert(resource->av, &raw_addr, 1, &fi_addr, 0, NULL);
 	assert_int_equal(err, 1);
 	assert_int_equal(fi_addr, 0);
-	test_av_verify_av_hash_cnt(av, 1);
+	test_av_verify_av_hash_cnt(av, 1, 0);
 
 	err = fi_av_lookup(resource->av, fi_addr, &raw_addr_2, &raw_addr_len);
 	assert_int_equal(err, 0);
@@ -305,15 +311,16 @@ void test_av_reinsertion(struct efa_resource **state)
 
 	peer = efa_rdm_ep_get_peer(efa_rdm_ep, fi_addr);
 	assert_int_equal(peer->conn->fi_addr, fi_addr);
+	assert_int_equal(efa_is_same_addr(&raw_addr, peer->conn->ep_addr), 1);
 
 	err = fi_av_remove(resource->av, &fi_addr, 1, 0);
 	assert_int_equal(err, 0);
-	test_av_verify_av_hash_cnt(av, 0);
+	test_av_verify_av_hash_cnt(av, 0, 0);
 
 	err = fi_av_insert(resource->av, &raw_addr, 1, &fi_addr, 0, NULL);
 	assert_int_equal(err, 1);
 	assert_int_equal(fi_addr, 0);
-	test_av_verify_av_hash_cnt(av, 1);
+	test_av_verify_av_hash_cnt(av, 1, 0);
 
 	err = fi_av_lookup(resource->av, fi_addr, &raw_addr_2, &raw_addr_len);
 	assert_int_equal(err, 0);
@@ -321,6 +328,7 @@ void test_av_reinsertion(struct efa_resource **state)
 
 	peer = efa_rdm_ep_get_peer(efa_rdm_ep, fi_addr);
 	assert_int_equal(peer->conn->fi_addr, fi_addr);
+	assert_int_equal(efa_is_same_addr(&raw_addr, peer->conn->ep_addr), 1);
 
 	err = fi_av_remove(resource->av, &fi_addr, 1, 0);
 	assert_int_equal(err, 0);
