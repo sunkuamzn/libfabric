@@ -269,6 +269,10 @@ struct efa_ah *efa_ah_alloc(struct efa_domain *domain, const uint8_t *gid)
 		goto err_destroy_ibv_ah;
 	}
 
+	char gid_str_cdesc[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, gid, gid_str_cdesc, INET6_ADDRSTRLEN);
+	EFA_WARN(FI_LOG_AV, "Created AH %d for GID %s\n", efa_ah_attr.ahn, gid_str_cdesc);
+
 	efa_ah->refcnt = 1;
 	efa_ah->ahn = efa_ah_attr.ahn;
 	memcpy(efa_ah->gid, gid, EFA_GID_LEN);

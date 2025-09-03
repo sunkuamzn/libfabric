@@ -342,6 +342,10 @@ efa_rdm_cq_get_peer_for_pkt_entry(struct efa_rdm_ep *ep,
 			gid, qpn, explicit_fi_addr);
 		peer = efa_rdm_ep_get_peer(ep, explicit_fi_addr);
 		goto out;
+	} else {
+		EFA_WARN(FI_LOG_CQ,
+			"Peer with qpn %d not found in explicit AV\n",
+			qpn);
 	}
 
 	implicit_fi_addr =
