@@ -1611,6 +1611,43 @@ int ft_exchange_addresses_oob(struct fid_av *av_ptr, struct fid_ep *ep_ptr,
 	return 0;
 }
 
+/* Only send local address out-of-band */
+int ft_send_addr_oob(struct fid_ep *ep_ptr)
+{
+	char buf[FT_MAX_CTRL_MSG];
+	int ret;
+	size_t addrlen = FT_MAX_CTRL_MSG;
+
+	ret = fi_getname(&ep_ptr->fid, buf, &addrlen);
+	if (ret) {
+		FT_PRINTERR("fi_getname", ret);
+		return ret;
+	}
+
+	ret = ft_sock_send(oob_sock, buf, FT_MAX_CTRL_MSG);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+/* Receive and insert peer address out-of-band */
+int ft_recv_addr_oob(struct fid_av *av_ptr, fi_addr_t *remote_addr)
+{
+	char buf[FT_MAX_CTRL_MSG];
+	int ret;
+
+	ret = ft_sock_recv(oob_sock, buf, FT_MAX_CTRL_MSG);
+	if (ret)
+		return ret;
+
+	ret = ft_av_insert(av_ptr, buf, 1, remote_addr, 0, NULL);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 /* TODO: retry send for unreliable endpoints */
 int ft_init_av_dst_addr(struct fid_av *av_ptr, struct fid_ep *ep_ptr,
 		fi_addr_t *remote_addr)
