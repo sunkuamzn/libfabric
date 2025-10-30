@@ -205,6 +205,9 @@ static inline int efa_rdm_cq_populate_src_efa_ep_addr(
 	    efa_rdm_pke_get_req_raw_addr(pkt_entry)) {
 		raw_addr_ptr = efa_rdm_pke_get_req_raw_addr(pkt_entry);
 		assert(raw_addr_ptr);
+		memcpy(efa_ep_addr->raw, raw_addr_ptr,
+		       sizeof(efa_ep_addr->raw));
+		efa_ep_addr_print("Read raw address from hdr", efa_ep_addr);
 		goto out;
 	}
 
@@ -223,12 +226,12 @@ static inline int efa_rdm_cq_populate_src_efa_ep_addr(
 	}
 
 	raw_addr_ptr = &gid.raw;
+	memcpy(efa_ep_addr->raw, raw_addr_ptr, sizeof(efa_ep_addr->raw));
+	efa_ep_addr_print("Read raw address from read_sgid", efa_ep_addr);
 #endif
 
 out:
 	if (raw_addr_ptr) {
-		memcpy(efa_ep_addr->raw, raw_addr_ptr,
-		       sizeof(efa_ep_addr->raw));
 		return FI_SUCCESS;
 	}
 
@@ -281,9 +284,9 @@ out:
 	EFA_WARN(FI_LOG_AV,
 		 "Recovered fi_addr for peer:[QPN]:[QKey] = "
 		 "[%s]:[%" PRIu16 "]:[%" PRIu32 "] fi_addr: %" PRIu64
-		 " implicit AV: %s\n",
+		 " implicit AV: %s peer ptr %p\n",
 		 gid_str_cdesc, efa_ep_addr->qpn, efa_ep_addr->qkey, addr,
-		 implicit ? "true" : "false");
+		 implicit ? "true" : "false", peer);
 
 	return peer;
 }
@@ -337,11 +340,11 @@ efa_rdm_cq_get_peer_for_pkt_entry(struct efa_rdm_ep *ep,
 		efa_av_reverse_lookup_rdm(efa_av, gid, qpn, pkt_entry);
 
 	if (explicit_fi_addr != FI_ADDR_NOTAVAIL) {
-		EFA_DBG(FI_LOG_CQ,
-			"Peer with gid %d and qpn %d found in explicit AV with "
-			"fi_addr %ld\n",
-			gid, qpn, explicit_fi_addr);
 		peer = efa_rdm_ep_get_peer(ep, explicit_fi_addr);
+		EFA_WARN(FI_LOG_CQ,
+			"Peer %p with gid %d and qpn %d found in explicit AV with "
+			"fi_addr %ld\n",
+			peer, gid, qpn, explicit_fi_addr);
 		goto out;
 	}
 
@@ -349,11 +352,11 @@ efa_rdm_cq_get_peer_for_pkt_entry(struct efa_rdm_ep *ep,
 		efa_av_reverse_lookup_rdm_implicit(efa_av, gid, qpn, pkt_entry);
 
 	if (implicit_fi_addr != FI_ADDR_NOTAVAIL) {
-		EFA_DBG(FI_LOG_CQ,
-			"Peer with gid %d and qpn %d found in implicit AV with "
-			"fi_addr %ld\n",
-			gid, qpn, implicit_fi_addr);
 		peer = efa_rdm_ep_get_peer_implicit(ep, implicit_fi_addr);
+		EFA_WARN(FI_LOG_CQ,
+			"Peer %p with gid %d and qpn %d found in implicit AV with "
+			"fi_addr %ld\n",
+			peer, gid, qpn, implicit_fi_addr);
 		goto out;
 	}
 
@@ -386,10 +389,6 @@ efa_rdm_cq_get_peer_for_pkt_entry(struct efa_rdm_ep *ep,
 	if (peer)
 		goto out;
 
-	EFA_DBG(FI_LOG_CQ,
-		"Peer with gid %d and qpn %d not found in explicit or implicit "
-		"AV. Attempting to insert into implicit AV...\n",
-		gid, qpn);
 	/*
 	 * The message is from a peer through efa device, which means peer is
 	 * not local or shm is disabled for transmission. We shouldn't insert
@@ -404,6 +403,10 @@ efa_rdm_cq_get_peer_for_pkt_entry(struct efa_rdm_ep *ep,
 	}
 	assert(implicit_fi_addr != FI_ADDR_NOTAVAIL);
 	peer = efa_rdm_ep_get_peer_implicit(ep, implicit_fi_addr);
+	EFA_WARN(FI_LOG_CQ,
+		"Peer %p with gid %d and qpn %d not found in explicit or implicit "
+		"AV. Attempting to insert into implicit AV...\n",
+		peer, gid, qpn);
 
 out:
 	assert(peer);
