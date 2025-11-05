@@ -53,6 +53,7 @@ char remote_raw_addr[FT_MAX_CTRL_MSG];
 
 static bool shared_av = false;
 int num_avs;
+static time_t random_seed = -1;
 
 void close_client(int i);
 int open_client(int i);
@@ -216,8 +217,6 @@ static void *post_sends(void *context)
 
 	idx = ((struct thread_context *) context)->idx;
 	av_idx = shared_av ? 0 : idx;
-
-	srand(time(NULL));
 
 	random_sleep();
 
@@ -502,6 +501,19 @@ static int run_test(void)
 	else
 		num_avs = num_eps;
 
+	if (random_seed != -1) {
+		printf("-------------------\n");
+		printf("Using random seed %ld\n", random_seed);
+		printf("-------------------\n");
+	} else {
+		random_seed = time(NULL);
+		printf("-------------------\n");
+		printf("Generated random seed %ld\n", random_seed);
+		printf("-------------------\n");
+	}
+
+	srand(random_seed);
+
 	opts.av_size = num_eps + 1;
 	ret = init_fabric();
 	if (ret)
@@ -543,7 +555,7 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 
 	while ((op = getopt_long(argc, argv,
-				 "c:hT:A" ADDR_OPTS INFO_OPTS CS_OPTS, long_opts,
+				 "c:hT:AN:" ADDR_OPTS INFO_OPTS CS_OPTS, long_opts,
 				 &lopt_idx)) != -1) {
 		switch (op) {
 		default:
@@ -561,6 +573,9 @@ int main(int argc, char **argv)
 			break;
 		case 'A':
 			shared_av = true;
+			break;
+		case 'N':
+			random_seed = atol(optarg);
 			break;
 		case '?':
 		case 'h':
