@@ -718,6 +718,9 @@ ssize_t efa_rdm_pke_recvv(struct efa_rdm_pke **pke_vec,
 	assert(ep);
 
 	for (i = 0; i < pke_cnt; ++i) {
+#if ENABLE_DEBUG
+		EFA_WARN(FI_LOG_CQ, "Posting receive for ep %p pkt_entry %p gen %d\n", ep, pke_vec[i], pke_vec[i]->gen);
+#endif
 		recv_wr = &ep->base_ep.efa_recv_wr_vec[i];
 		recv_wr->wr.wr_id = (uintptr_t) pke_vec[i];
 

@@ -519,6 +519,7 @@ int efa_rdm_ep_open(struct fid_domain *domain, struct fi_info *info,
 	efa_rdm_ep->inject_atomic_size = info->tx_attr->inject_size;
 	efa_rdm_ep->efa_max_outstanding_tx_ops = efa_domain->device->rdm_info->tx_attr->size;
 	efa_rdm_ep->efa_max_outstanding_rx_ops = efa_domain->device->rdm_info->rx_attr->size;
+	EFA_WARN(FI_LOG_EP_CTRL, "efa_rdm_ep %p max_outstanding_rx_ops %ld\n", efa_rdm_ep, efa_rdm_ep->efa_max_outstanding_rx_ops);
 	efa_rdm_ep->use_device_rdma = efa_rdm_get_use_device_rdma(info->fabric_attr->api_version);
 	efa_rdm_ep->shm_permitted = true;
 	efa_rdm_ep->msg_prefix_size = info->ep_attr->msg_prefix_size;

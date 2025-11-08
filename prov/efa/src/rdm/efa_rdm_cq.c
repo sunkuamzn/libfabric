@@ -662,6 +662,11 @@ enum ibv_wc_status efa_rdm_cq_process_wc(struct efa_ibv_cq *cq, struct efa_rdm_e
 	uint64_t wr_id = cq->ibv_cq_ex->wr_id;
 	enum ibv_wc_status status = cq->ibv_cq_ex->status;
 	enum ibv_wc_opcode opcode = efa_ibv_cq_wc_read_opcode(cq);
+
+#if ENABLE_DEBUG
+	EFA_WARN(FI_LOG_CQ, "Processing completion opcode %d for ep %p wr_id %p gen %d\n", opcode, ep, (void *) wr_id, (uint8_t) (wr_id & (EFA_RDM_BUFPOOL_ALIGNMENT - 1)));
+#endif
+
 	struct efa_rdm_pke *pkt_entry = efa_rdm_cq_get_pke_from_wr_id(cq, wr_id);
 
 	int prov_errno;
