@@ -151,7 +151,7 @@ AS_IF([test x"$enable_debug" != x"no"],
        CFLAGS="-g -O0 ${base_c_warn_flags} ${debug_c_flags} ${CFLAGS_save}"
        unset CFLAGS_save],
       [dbg=0
-       CFLAGS="-O2 -DNDEBUG $CFLAGS"])
+       CFLAGS="-O2 -DNDEBUG -flto $CFLAGS"])
 
 AC_DEFINE_UNQUOTED([ENABLE_DEBUG],[$dbg],
                    [defined to 1 if libfabric was configured with --enable-debug, 0 otherwise])
