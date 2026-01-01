@@ -237,15 +237,13 @@ int efa_rdm_peer_recvwin_queue_or_append_pke(struct efa_rdm_pke *pkt_entry,
 		ooo_entry = pkt_entry;
 	}
 
-	cur_ooo_entry = *ofi_recvwin_get_msg(robuf, msg_id);
-	if (cur_ooo_entry) {
-		assert(efa_rdm_pkt_type_is_mulreq(efa_rdm_pke_get_base_hdr(cur_ooo_entry)->type));
-		assert(efa_rdm_pke_get_rtm_msg_id(cur_ooo_entry) == msg_id);
-		assert(efa_rdm_pke_get_rtm_msg_length(cur_ooo_entry) == efa_rdm_pke_get_rtm_msg_length(ooo_entry));
-		efa_rdm_pke_append(cur_ooo_entry, ooo_entry);
-	} else {
-		ofi_recvwin_queue_msg(robuf, &ooo_entry, msg_id);
-	}
+	/* Previous mulreq packet with same msg_id should already have been
+	 * processed and rxe created for it. Such a packet should get matched to
+	 * the rxe in the rxe map lookup at the start of
+	 * efa_rdm_pke_handle_rtm_rta_recv, so we should never see such a packet
+	 * here */
+	assert(!*ofi_recvwin_get_msg(robuf, msg_id));
+	ofi_recvwin_queue_msg(robuf, &ooo_entry, msg_id);
 
 	return 1;
 }
