@@ -546,6 +546,7 @@ void efa_rdm_pke_handle_send_completion(struct efa_rdm_pke *pkt_entry)
 	struct efa_rdm_ep *ep;
 
 	ep = pkt_entry->ep;
+
 	/*
 	 * For a send completion, pkt_entry->peer can be NULL in 3 situations:
 	 * 1. the pkt_entry is used for a local read operation
