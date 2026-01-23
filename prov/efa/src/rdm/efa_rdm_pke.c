@@ -92,7 +92,6 @@ struct efa_rdm_pke *efa_rdm_pke_alloc(struct efa_rdm_ep *ep,
  */
 void efa_rdm_pke_release(struct efa_rdm_pke *pkt_entry)
 {
-#ifdef ENABLE_EFA_POISONING
 	/* Preserve gen and debug_info across poisoning to maintain packet history */
 	uint8_t gen = pkt_entry->gen;
 #if ENABLE_DEBUG
@@ -105,7 +104,6 @@ void efa_rdm_pke_release(struct efa_rdm_pke *pkt_entry)
 #if ENABLE_DEBUG
 	pkt_entry->debug_info_counter = debug_info_counter;
 	memcpy(pkt_entry->debug_info_vec, debug_info_vec, sizeof(debug_info_vec));
-#endif
 #endif
 	pkt_entry->flags = 0;
 	ofi_buf_free(pkt_entry);

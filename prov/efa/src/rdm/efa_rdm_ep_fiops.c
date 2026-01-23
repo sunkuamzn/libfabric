@@ -48,10 +48,8 @@ int efa_rdm_pke_pool_alloc_handler(struct ofi_bufpool_region *region)
 
 	region->context = mr;
 
-#ifdef ENABLE_EFA_POISONING
 	/* Poison the entire pool on allocation */
 	efa_rdm_poison_mem_region(region->alloc_region, region->pool->alloc_size);
-#endif
 
 	return ret;
 }
