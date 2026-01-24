@@ -841,5 +841,6 @@ void efa_rdm_pke_print_debug_info(struct efa_rdm_pke *pkt_entry)
 		         EFA_RDM_PKE_DEBUG_INFO_GET_QPN(info), info->qkey,
 		         event < EFA_RDM_PKE_DEBUG_EVENT_TYPE_COUNT ? event_str[event] : "UNKNOWN");
 	}
+	EFA_WARN(FI_LOG_EP_DATA, "Current endpoint %p: QPN %u QKEY %u\n", pkt_entry->ep, pkt_entry->ep->base_ep.qp->qp_num, pkt_entry->ep->base_ep.qp->qkey);
 }
 #endif
