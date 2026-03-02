@@ -1062,9 +1062,16 @@ static int efa_rdm_ep_close(struct fid *fid)
 	struct efa_domain *domain;
 	struct dlist_entry *entry, *tmp;
 	struct efa_rdm_ope *rxe;
+	size_t ep_addr_strlen;
+	char ep_addr_str[OFI_ADDRSTRLEN];
 
 	efa_rdm_ep = container_of(fid, struct efa_rdm_ep, base_ep.util_ep.ep_fid.fid);
 	domain = efa_rdm_ep_domain(efa_rdm_ep);
+
+	ep_addr_strlen = sizeof(ep_addr_str);
+	efa_base_ep_raw_addr_str(&efa_rdm_ep->base_ep, ep_addr_str, &ep_addr_strlen);
+	EFA_WARN(FI_LOG_EP_CTRL, "Closing libfabric %s efa endpoint. Address: %s\n",
+		fi_tostr("1", FI_TYPE_VERSION), ep_addr_str);
 
 	if (efa_rdm_ep->base_ep.efa_qp_enabled)
 		efa_rdm_ep_wait_send(efa_rdm_ep);
@@ -1452,7 +1459,7 @@ static int efa_rdm_ep_ctrl(struct fid *fid, int command, void *arg)
 
 		ep_addr_strlen = sizeof(ep_addr_str);
 		efa_base_ep_raw_addr_str(&ep->base_ep, ep_addr_str, &ep_addr_strlen);
-		EFA_INFO(FI_LOG_EP_CTRL, "libfabric %s efa endpoint created! address: %s\n",
+		EFA_WARN(FI_LOG_EP_CTRL, "libfabric %s efa endpoint created! address: %s\n",
 			fi_tostr("1", FI_TYPE_VERSION), ep_addr_str);
 
 		/* Enable shm provider endpoint & post recv buff.
