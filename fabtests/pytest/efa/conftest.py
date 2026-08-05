@@ -10,10 +10,11 @@ from common import (
     SshConnectionError,
 )
 from efa_common import (
-    has_rdma, 
+    has_rdma,
     support_cq_interrupts,
     CudaMemorySupport,
     get_cuda_memory_support,
+    get_efa_device_names,
 )
 
 # Message size lists are defined in efa_common.py and imported by test files directly.
@@ -333,5 +334,30 @@ def support_sread(cmdline_args):
     """Check if both server and client support cq interrupts."""
     return (support_cq_interrupts(cmdline_args.server_id) and
             support_cq_interrupts(cmdline_args.client_id))
+
+
+@pytest.fixture(scope="session")
+def num_domains(request):
+    """
+    Number of EFA domains a test can spread endpoints across.
+
+    This is the smaller of the two hosts' device counts: each peer opens
+    domains from its own device list, so a heterogeneous pair can only spread
+    as far as the host with fewer devices.
+
+    Takes request.config rather than the cmdline_args fixture because that
+    fixture is function-scoped. Session scope means one lookup per xdist
+    worker instead of one per test.
+    """
+    server_id = request.config.getoption("--server-id")
+    client_id = request.config.getoption("--client-id")
+
+    counts = [len(get_efa_device_names(host_id))
+              for host_id in dict.fromkeys(filter(None, (server_id, client_id)))]
+
+    if not counts or not min(counts):
+        pytest.skip("could not determine the EFA device count on both hosts")
+
+    return min(counts)
 
 

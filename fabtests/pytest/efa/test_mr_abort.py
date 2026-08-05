@@ -1,3 +1,5 @@
+from collections import namedtuple
+
 import pytest
 from common import ClientServerTest
 
@@ -60,6 +62,128 @@ def combined_msg_size_params():
                                        sl_low_latency_val, marks=marks, id=id)
 
 
+# Mirrors EFA_MR_ABORT_MAX_EPS in fabtests/prov/efa/src/mr_abort.c. The
+# fabtest rejects endpoint counts above this
+MR_ABORT_MAX_EPS = 512
+
+MR_ABORT_EPS_PER_DOMAIN = 32
+
+EpConfig = namedtuple("EpConfig",
+                      ["initiator_ep_count", "target_ep_count", "eps_per_domain"])
+
+# Ids of the endpoint/domain layouts every mr_abort test runs against. The ids
+# are hardware-independent because the number of EFA domains cannot be queried
+# at collection time.
+# Keeping the id set fixed also keeps -k expressions and exclusion lists
+# working across instance types.
+EP_CONFIG_IDS = [
+    "single_ep",
+    "symm_single_domain",
+    "incast_single_domain",
+    "symm_all_domains_single_ep",
+    "symm-all_domains_multi_ep",
+    "incast_all_domains_single_ep",
+    "incast_all_domains_multi_ep",
+    "incast_all_domains_multi_ep_single_ep_target",
+]
+
+
+def spread_over_all_domains(num_domains):
+    """
+    Return the (n_eps, eps_per_domain) that puts endpoints on every one of
+    num_domains domains, reduced to respect MR_ABORT_MAX_EPS.
+
+    The fabtest derives the number of domains a side uses from
+    ceil(n_eps / eps_per_domain), so capping n_eps alone would quietly narrow
+    the spread to the first few domains. Shrinking eps_per_domain instead
+    keeps every domain in play, which is what these layouts exist to exercise.
+    """
+    eps_per_domain = min(MR_ABORT_EPS_PER_DOMAIN,
+                         max(1, MR_ABORT_MAX_EPS // num_domains))
+
+    return min(num_domains * eps_per_domain, MR_ABORT_MAX_EPS), eps_per_domain
+
+
+def resolve_ep_configs(num_domains):
+    """
+    Return an id -> EpConfig mapping covering EP_CONFIG_IDS, for a host pair
+    offering num_domains EFA domains.
+
+    Note that --eps-per-domain is one value applied to whichever side the
+    process is on, so an incast layout gives the initiator and the target
+    different domain counts from the same flag: the initiator's larger endpoint
+    count spans more domains than the target's.
+    """
+    # Endpoint count and per-domain fill for a side that covers every domain.
+    all_dom_eps, all_dom_fill = spread_over_all_domains(num_domains)
+
+    # A side that names one endpoint per domain is bounded by the ep limit too.
+    one_per_dom_eps = min(num_domains, MR_ABORT_MAX_EPS)
+
+    multi = MR_ABORT_EPS_PER_DOMAIN
+
+    configs = {
+        # Single endpoint, symmetric
+        "single_ep": EpConfig(1, 1, 1),
+
+        # Multiple endpoints, symmetric on both sides, single domain
+        "symm_single_domain": EpConfig(multi, multi, multi),
+
+        # Multiple endpoints, incast, single domain
+        "incast_single_domain": EpConfig(multi, 1, multi),
+
+        # Symmetric, every domain, one endpoint per domain
+        "symm_all_domains_single_ep": EpConfig(one_per_dom_eps, one_per_dom_eps, 1),
+
+        # Symmetric, every domain, multiple endpoints per domain
+        "symm-all_domains_multi_ep": EpConfig(all_dom_eps, all_dom_eps, all_dom_fill),
+
+        # Incast, every domain, one initiator endpoint per domain
+        "incast_all_domains_single_ep": EpConfig(one_per_dom_eps, 1, 1),
+
+        # Incast, initiator over every domain with multiple endpoints per
+        # domain, target holding a domain's worth of endpoints
+        "incast_all_domains_multi_ep": EpConfig(all_dom_eps, all_dom_fill, all_dom_fill),
+
+        # Incast, initiator over every domain with multiple endpoints per
+        # domain, single target endpoint
+        "incast_all_domains_multi_ep_single_ep_target": EpConfig(all_dom_eps, 1, all_dom_fill),
+    }
+
+    assert set(configs) == set(EP_CONFIG_IDS)
+
+    return configs
+
+
+def ep_config_args(ep_config):
+    """The fi_mr_abort options selecting an endpoint/domain layout."""
+    return (f" --num-initiator-eps {ep_config.initiator_ep_count}"
+            f" --num-target-eps {ep_config.target_ep_count}"
+            f" --eps-per-domain {ep_config.eps_per_domain}")
+
+
+@pytest.fixture(scope="function", params=EP_CONFIG_IDS)
+def ep_config(request, num_domains):
+    """
+    Resolve one EP_CONFIG_IDS entry to the endpoint counts to run with.
+
+    Several layouts describe the same counts on a host with few domains -- on a
+    single-domain instance every "alldom" layout collapses onto its
+    single-domain counterpart. Rather than drop those ids from the id set,
+    which would make the ids instance-specific, run the first id that produces
+    a given layout and skip the rest.
+    """
+    configs = resolve_ep_configs(num_domains)
+    config = configs[request.param]
+
+    first_id = next(id for id, other in configs.items() if other == config)
+    if first_id != request.param:
+        pytest.skip(f"{request.param} is {config} with {num_domains} "
+                    f"domain(s), same as {first_id}")
+
+    return config
+
+
 # --- Test: abort (RMA) ---
 @pytest.mark.functional
 @pytest.mark.fabric(params=["efa-direct"])  # TODO add test for efa fabric
@@ -68,10 +192,8 @@ def combined_msg_size_params():
 @pytest.mark.parametrize("ops_per_mr", [1, 4])
 @pytest.mark.parametrize("message_size, rma_op, high_pps, sl_low_latency",
                          list(combined_msg_size_params()))
-@pytest.mark.parametrize("initiator_ep_count, target_ep_count", [(1, 1), (16, 1), (16, 16)])
 def test_mr_abort(cmdline_args, rma_fabric, rma_op, cancel_order, close_side, ops_per_mr,
-                  high_pps, sl_low_latency, message_size, memory_type_symm, initiator_ep_count,
-                  target_ep_count):
+                  high_pps, sl_low_latency, message_size, memory_type_symm, ep_config):
     if rma_fabric == "efa" and cmdline_args.server_id == cmdline_args.client_id:
         pytest.skip("fi_mr_abort not supported with efa with SHM")
 
@@ -80,8 +202,7 @@ def test_mr_abort(cmdline_args, rma_fabric, rma_op, cancel_order, close_side, op
 
     command = (f"fi_mr_abort -T abort -o {rma_op} -C {cancel_order}"
                f" -R {close_side} -N {ops_per_mr} -W {MR_ABORT_NUM_MRS}"
-               f" -S {message_size} --num-initiator-eps {initiator_ep_count}"
-               f" --num-target-eps {target_ep_count}")
+               f" -S {message_size}" + ep_config_args(ep_config))
 
     if high_pps:
         assert(rma_op != "read")
@@ -101,16 +222,13 @@ def test_mr_abort(cmdline_args, rma_fabric, rma_op, cancel_order, close_side, op
 @pytest.mark.fabric(params=["efa-direct"]) # TODO add test for efa fabric
 @pytest.mark.parametrize("message_size, rma_op, high_pps, sl_low_latency",
                          list(combined_msg_size_params()))
-@pytest.mark.parametrize("initiator_ep_count, target_ep_count", [(1, 1), (16, 1), (16, 16)])
 def test_mr_abort_partial(cmdline_args, rma_fabric, rma_op, high_pps, sl_low_latency,
-                          message_size, memory_type_symm, initiator_ep_count,
-                          target_ep_count):
+                          message_size, memory_type_symm, ep_config):
     if rma_fabric == "efa" and cmdline_args.server_id == cmdline_args.client_id:
         pytest.skip("fi_mr_abort not supported with efa with SHM")
 
     command = (f"fi_mr_abort -T partial -o {rma_op} -S {message_size}"
-               f" --num-initiator-eps {initiator_ep_count}"
-               f" --num-target-eps {target_ep_count}")
+               + ep_config_args(ep_config))
 
     if high_pps:
         assert(rma_op != "read")
@@ -272,10 +390,9 @@ def abort_owes_rx_completion(protocol):
 @pytest.mark.parametrize("ops_per_mr", [1, 4])
 @pytest.mark.parametrize("tagged", [True, False])
 @pytest.mark.parametrize("protocol", ["EAGER", "MEDIUM", "LONGCTS", "LONGREAD", "RUNTREAD-LONGREAD", "RUNTREAD-NOREAD"])
-@pytest.mark.parametrize("initiator_ep_count, target_ep_count", [(1, 1), (16, 1), (16, 16)])
 def test_mr_abort_send(cmdline_args, fabric, cancel_order, close_side,
                        ops_per_mr, tagged, protocol, memory_type_symm,
-                       initiator_ep_count, target_ep_count):
+                       ep_config):
 
     if fabric == "efa" and cmdline_args.server_id == cmdline_args.client_id:
         pytest.skip("fi_mr_abort not supported with efa with SHM")
@@ -307,8 +424,7 @@ def test_mr_abort_send(cmdline_args, fabric, cancel_order, close_side,
     command = (f"fi_mr_abort -T {send_op} -C {cancel_order}"
                f" -R {close_side} -N {ops_per_mr} -W {MR_ABORT_NUM_MRS}"
                f" -S {message_size}{owe_flag}{homogeneous_flag}  -A ep_first"
-               f" --num-initiator-eps {initiator_ep_count}"
-               f" --num-target-eps {target_ep_count}")
+               + ep_config_args(ep_config))
     test = ClientServerTest(cmdline_args, command, timeout=360, fabric=fabric,
                             memory_type=memory_type_symm, additional_env=env)
     test.run()

@@ -141,7 +141,7 @@ static int set_homogeneous_peers;
 static bool use_high_pps = false;
 static bool sl_low_latency = false;
 
-#define EFA_MR_ABORT_MAX_EPS 64
+#define EFA_MR_ABORT_MAX_EPS 512
 
 static int num_target_eps = 1;
 static int num_initiator_eps = 1;
