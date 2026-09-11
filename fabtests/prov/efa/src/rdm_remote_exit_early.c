@@ -41,8 +41,9 @@
 static bool post_rx = false;
 static bool homogeneous_peers = true;
 
+/* Numbered past the shared LONG_OPT_* values and every short option */
 enum {
-	LONG_OPT_POST_RX,
+	LONG_OPT_POST_RX = 256,
 	LONG_OPT_HETEROGENEOUS_PEERS,
 };
 
@@ -208,6 +209,7 @@ out:
 int main(int argc, char **argv)
 {
 	int op, ret;
+	struct option *test_opts;
 
 	opts = INIT_OPTS;
 	opts.options |= FT_OPT_SIZE;
@@ -217,16 +219,21 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 
 	timeout = 5;
-	int lopt_idx = 0;
-	struct option long_opts[] = {
+	struct option extra_opts[] = {
 		{"post-rx", no_argument, NULL, LONG_OPT_POST_RX},
 		{"heterogeneous-peers", no_argument, NULL, LONG_OPT_HETEROGENEOUS_PEERS},
 		{0, 0, 0, 0}
 	};
+	test_opts = ft_merge_long_opts(extra_opts, long_opts);
+	if (!test_opts)
+		return EXIT_FAILURE;
+
 	while ((op = getopt_long(argc, argv, ADDR_OPTS INFO_OPTS CS_OPTS API_OPTS,
-				 long_opts, &lopt_idx)) != -1) {
+				 test_opts, &lopt_idx)) != -1) {
 		switch (op) {
 		default:
+			if (!ft_parse_long_opts(op, optarg))
+				continue;
 			ft_parse_addr_opts(op, optarg, &opts);
 			ft_parseinfo(op, optarg, hints, &opts);
 			ft_parsecsopts(op, optarg, &opts);
@@ -250,6 +257,7 @@ int main(int argc, char **argv)
 			FT_PRINT_OPTS_USAGE( "--heterogeneous-peers",
 					    "Disable homogeneous peers assumption. "
 						"Use when testing across different instance types.\n");
+			ft_longopts_usage();
 			return EXIT_FAILURE;
 		}
 	}

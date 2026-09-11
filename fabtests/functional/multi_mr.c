@@ -293,9 +293,12 @@ int main(int argc, char **argv)
 	if (!hints)
 		return EXIT_FAILURE;
 
-	while ((op = getopt(argc, argv, "c:Vvh" ADDR_OPTS INFO_OPTS)) != -1) {
+	while ((op = getopt_long(argc, argv, "c:Vvh" ADDR_OPTS INFO_OPTS,
+				 long_opts, &lopt_idx)) != -1) {
 		switch (op) {
 		default:
+			if (!ft_parse_long_opts(op, optarg))
+				continue;
 			ft_parse_addr_opts(op, optarg, &opts);
 			ft_parseinfo(op, optarg, hints, &opts);
 			break;
@@ -315,6 +318,7 @@ int main(int argc, char **argv)
 				"number of memory regions to create and test");
 			FT_PRINT_OPTS_USAGE("-V", "Enable verbose printing");
 			FT_PRINT_OPTS_USAGE("-v", "Enable data verification");
+			ft_longopts_usage();
 			return EXIT_FAILURE;
 		}
 	}

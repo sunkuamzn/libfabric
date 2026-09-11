@@ -83,7 +83,6 @@ static struct option test_long_opts[] = {
 	{"shared-cq", no_argument, NULL, OPT_SHARED_CQ},
 	{"op-type", required_argument, NULL, OPT_OP_TYPE},
 	{"random-seed", required_argument, NULL, OPT_RANDOM_SEED},
-	{"threading", required_argument, NULL, LONG_OPT_THREADING},
 	{0, 0, 0, 0}};
 
 // RMA information
@@ -1349,17 +1348,23 @@ static void print_test_usage(void)
 			    "(default: untagged)");
 	FT_PRINT_OPTS_USAGE("--random-seed <seed>",
 			    "random seed to use for the test. Default value is time(NULL).");
+	ft_longopts_usage();
 }
 
 static int parse_test_opts(int argc, char **argv)
 {
 	int op;
 	long long seed;
+	struct option *all_long_opts;
 
 	topts.random_seed = 0;
 
+	all_long_opts = ft_merge_long_opts(test_long_opts, long_opts);
+	if (!all_long_opts)
+		return -1;
+
 	while ((op = getopt_long(argc, argv, "hAQ" ADDR_OPTS INFO_OPTS CS_OPTS,
-				 test_long_opts, NULL)) != -1) {
+				 all_long_opts, &lopt_idx)) != -1) {
 		switch (op) {
 		case OPT_SENDER_WORKERS:
 			topts.num_sender_workers = atoi(optarg);

@@ -92,14 +92,18 @@ int main(int argc, char **argv)
 	hints->ep_attr->type = FI_EP_RDM;
 	hints->mode = FI_CONTEXT | FI_CONTEXT2;
 
-	while ((op = getopt(argc, argv, "h" INFO_OPTS)) != -1) {
+	while ((op = getopt_long(argc, argv, "h" INFO_OPTS,
+				 long_opts, &lopt_idx)) != -1) {
 		switch (op) {
 		default:
+			if (!ft_parse_long_opts(op, optarg))
+				continue;
 			ft_parseinfo(op, optarg, hints, &opts);
 			break;
 		case '?':
 		case 'h':
 			ft_usage(argv[0], "A loopback communication test.");
+			ft_longopts_usage();
 			return EXIT_FAILURE;
 		}
 	}

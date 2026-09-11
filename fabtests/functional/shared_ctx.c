@@ -39,9 +39,9 @@
 
 #include <shared.h>
 
+/* Numbered past the shared LONG_OPT_* values and every short option */
 enum {
-	FT_UNSPEC,
-	FT_EP_CNT,
+	FT_EP_CNT = 256,
 };
 
 enum ft_ep_state {
@@ -561,10 +561,10 @@ static int run(void)
 int main(int argc, char **argv)
 {
 	int op, ret, cleanup_ret;
-	int option_index = 0;
 	int use_stx = 1, use_srx = 1;
+	struct option *long_options;
 
-	struct option long_options[] = {
+	struct option test_opts[] = {
 		{"no-tx-shared-ctx", no_argument, &use_stx, 0},
 		{"no-rx-shared-ctx", no_argument, &use_srx, 0},
 		{"ep-count", required_argument, 0, FT_EP_CNT},
@@ -574,12 +574,16 @@ int main(int argc, char **argv)
 	opts = INIT_OPTS;
 	opts.options |= FT_OPT_SIZE;
 
+	long_options = ft_merge_long_opts(test_opts, long_opts);
+	if (!long_options)
+		return EXIT_FAILURE;
+
 	hints = fi_allocinfo();
 	if (!hints)
 		return EXIT_FAILURE;
 
 	while ((op = getopt_long(argc, argv, "h" ADDR_OPTS INFO_OPTS API_OPTS,
-				 long_options, &option_index)) != -1) {
+				 long_options, &lopt_idx)) != -1) {
 		switch (op) {
 		case FT_EP_CNT:
 			ep_cnt = atoi(optarg);
@@ -590,6 +594,8 @@ int main(int argc, char **argv)
 			hints->domain_attr->ep_cnt = ep_cnt;
 			break;
 		default:
+			if (!ft_parse_long_opts(op, optarg))
+				continue;
 			ft_parse_addr_opts(op, optarg, &opts);
 			ft_parseinfo(op, optarg, hints, &opts);
 			ft_parse_api_opts(op, optarg, hints, &opts);
@@ -604,6 +610,7 @@ int main(int argc, char **argv)
 					"Disable shared context for RX");
 			FT_PRINT_OPTS_USAGE("--ep-count <count> (default: 4)",
 					"# of endpoints to be opened");
+			ft_longopts_usage();
 			return EXIT_FAILURE;
 		}
 	}

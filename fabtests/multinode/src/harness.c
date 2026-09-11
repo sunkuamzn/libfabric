@@ -383,9 +383,12 @@ int main(int argc, char **argv)
 	if (!hints)
 		return EXIT_FAILURE;
 
-	while ((c = getopt(argc, argv, "n:x:z:u:Ths:I:" INFO_OPTS)) != -1) {
+	while ((c = getopt_long(argc, argv, "n:x:z:u:Ths:I:" INFO_OPTS,
+				long_opts, &lopt_idx)) != -1) {
 		switch (c) {
 		default:
+			if (!ft_parse_long_opts(c, optarg))
+				continue;
 			ft_parse_addr_opts(c, optarg, &opts);
 			ft_parseinfo(c, optarg, hints, &opts);
 			break;
@@ -438,6 +441,7 @@ int main(int argc, char **argv)
 			FT_PRINT_OPTS_USAGE("-a", "do not use local address");
 			ft_addr_usage();
 			ft_hmem_usage();
+			ft_longopts_usage();
 
 			return EXIT_FAILURE;
 		}

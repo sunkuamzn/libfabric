@@ -1067,7 +1067,8 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 
 	hints->ep_attr->type = FI_EP_RDM;
-	while ((op = getopt(argc, argv, INFO_OPTS "g:G:n:s:h")) != -1) {
+	while ((op = getopt_long(argc, argv, INFO_OPTS "g:G:n:s:h",
+				 long_opts, &lopt_idx)) != -1) {
 		switch (op) {
 		case 'g':
 			good_address = optarg;
@@ -1082,11 +1083,14 @@ int main(int argc, char **argv)
 			opts.src_addr = optarg;
 			break;
 		default:
+			if (!ft_parse_long_opts(op, optarg))
+				continue;
 			ft_parseinfo(op, optarg, hints, &opts);
 			break;
 		case '?':
 		case 'h':
 			usage(argv[0]);
+			ft_longopts_usage();
 			return EXIT_FAILURE;
 
 		}

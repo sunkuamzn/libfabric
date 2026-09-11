@@ -480,12 +480,15 @@ int main(int argc, char **argv)
 	if (!hints)
 		return EXIT_FAILURE;
 
-	while ((op = getopt(argc, argv, "q:h" ADDR_OPTS INFO_OPTS)) != -1) {
+	while ((op = getopt_long(argc, argv, "q:h" ADDR_OPTS INFO_OPTS,
+				 long_opts, &lopt_idx)) != -1) {
 		switch (op) {
 		case 'q':
 			sock_service = optarg;
 			break;
 		default:
+			if (!ft_parse_long_opts(op, optarg))
+				continue;
 			ft_parse_addr_opts(op, optarg, &opts);
 			ft_parseinfo(op, optarg, hints, &opts);
 			break;
@@ -494,6 +497,7 @@ int main(int argc, char **argv)
 			ft_usage(argv[0],
 					"A MSG client-sever example that uses CM data.");
 			FT_PRINT_OPTS_USAGE("-q <service_port>", "management port");
+			ft_longopts_usage();
 			return EXIT_FAILURE;
 		}
 	}

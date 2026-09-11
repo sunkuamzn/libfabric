@@ -253,15 +253,19 @@ int main(int argc, char **argv)
 	if (!hints)
 		return EXIT_FAILURE;
 
-	while ((op = getopt(argc, argv, "h" HMEM_OPTS CS_OPTS INFO_OPTS)) != -1) {
+	while ((op = getopt_long(argc, argv, "h" HMEM_OPTS CS_OPTS INFO_OPTS,
+				 long_opts, &lopt_idx)) != -1) {
 		switch (op) {
 		default:
+			if (!ft_parse_long_opts(op, optarg))
+				continue;
 			ft_parseinfo(op, optarg, hints, &opts);
 			ft_parsecsopts(op, optarg, &opts);
 			break;
 		case '?':
 		case 'h':
 			usage(argv[0]);
+			ft_longopts_usage();
 			return EXIT_FAILURE;
 		}
 	}

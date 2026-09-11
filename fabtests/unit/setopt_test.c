@@ -138,14 +138,18 @@ int main(int argc, char **argv)
 		return FAIL;
 	}
 
-	while ((op = getopt(argc, argv, FAB_OPTS HMEM_OPTS "h")) != -1) {
+	while ((op = getopt_long(argc, argv, FAB_OPTS HMEM_OPTS "h",
+				 long_opts, &lopt_idx)) != -1) {
 		switch (op) {
 		default:
+			if (!ft_parse_long_opts(op, optarg))
+				continue;
 			ft_parseinfo(op, optarg, hints, &opts);
 			break;
 		case '?':
 		case 'h':
 			usage(argv[0]);
+			ft_longopts_usage();
 			return EXIT_FAILURE;
 		}
 	}

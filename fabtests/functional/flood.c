@@ -248,9 +248,13 @@ int main(int argc, char **argv)
 
 	hints->ep_attr->type = FI_EP_RDM;
 
-	while ((op = getopt(argc, argv, "UW:vT:h" CS_OPTS ADDR_OPTS INFO_OPTS)) != -1) {
+	while ((op = getopt_long(argc, argv,
+				 "UW:vT:h" CS_OPTS ADDR_OPTS INFO_OPTS,
+				 long_opts, &lopt_idx)) != -1) {
 		switch (op) {
 		default:
+			if (!ft_parse_long_opts(op, optarg))
+				continue;
 			ft_parse_addr_opts(op, optarg, &opts);
 			ft_parseinfo(op, optarg, hints, &opts);
 			ft_parsecsopts(op, optarg, &opts);
@@ -275,6 +279,7 @@ int main(int argc, char **argv)
 			FT_PRINT_OPTS_USAGE("-v", "Enable data verification");
 			FT_PRINT_OPTS_USAGE("-W window_size",
 				"Set transmit window size before waiting for completion");
+			ft_longopts_usage();
 			return EXIT_FAILURE;
 		}
 	}

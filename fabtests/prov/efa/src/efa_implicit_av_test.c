@@ -413,9 +413,13 @@ int main(int argc, char **argv)
 	if (!hints)
 		return EXIT_FAILURE;
 
-	while ((op = getopt(argc, argv, "c:XLrvUh" ADDR_OPTS INFO_OPTS CS_OPTS)) != -1) {
+	while ((op = getopt_long(argc, argv,
+				 "c:XLrvUh" ADDR_OPTS INFO_OPTS CS_OPTS,
+				 long_opts, &lopt_idx)) != -1) {
 		switch (op) {
 		default:
+			if (!ft_parse_long_opts(op, optarg))
+				continue;
 			ft_parse_addr_opts(op, optarg, &opts);
 			ft_parseinfo(op, optarg, hints, &opts);
 			ft_parsecsopts(op, optarg, &opts);
@@ -443,6 +447,7 @@ int main(int argc, char **argv)
 			ft_usage(argv[0], "AV message order test");
 			FT_PRINT_OPTS_USAGE("-c <int>",
 				"number of server endpoints (default 3)");
+			ft_longopts_usage();
 			return EXIT_FAILURE;
 		}
 	}

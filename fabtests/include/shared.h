@@ -720,6 +720,20 @@ extern struct option long_opts[];
 int ft_parse_long_opts(int op, char *optarg);
 void ft_longopts_usage();
 
+/*
+ * Concatenate a test's own long options (@p extra) with @p base, so a test that
+ * defines extra options still accepts every option in @p base - typically the
+ * shared long_opts table. Both arrays must be NULL-name terminated, and so is
+ * the result. Returns NULL on allocation failure; the returned table is meant
+ * to live for the lifetime of the process and is never freed.
+ *
+ * Long option values must not collide, so a test defining its own options
+ * should number them from 256 up, past both the shared LONG_OPT_* values and
+ * every short option character.
+ */
+struct option *ft_merge_long_opts(const struct option *extra,
+				  const struct option *base);
+
 #define ft_assert(expr)					\
 	do {						\
 		if (!debug_assert) {			\

@@ -46,8 +46,9 @@ static bool use_ext_mem;
 static volatile uint64_t *tx_cntr_ptr;
 static volatile uint64_t *rx_cntr_ptr;
 
+/* Numbered past the shared LONG_OPT_* values and every short option */
 enum {
-	LONG_OPT_EXTERNAL_MEM,
+	LONG_OPT_EXTERNAL_MEM = 256,
 };
 
 static int open_cntr(struct fid_cntr **cntr, volatile uint64_t **cntr_ptr)
@@ -370,6 +371,7 @@ out:
 int main(int argc, char **argv)
 {
 	int op, ret;
+	struct option *test_opts;
 
 	opts = INIT_OPTS;
 	opts.rma_op = 0;
@@ -379,13 +381,17 @@ int main(int argc, char **argv)
 	if (!hints)
 		return EXIT_FAILURE;
 
-	int lopt_idx = 0;
-	struct option long_opts[] = {
+	struct option extra_opts[] = {
 		{"external-mem", no_argument, NULL, LONG_OPT_EXTERNAL_MEM},
 		{0, 0, 0, 0}
 	};
-	while ((op = getopt_long(argc, argv, "h" CS_OPTS INFO_OPTS BENCHMARK_OPTS
-				 API_OPTS, long_opts, &lopt_idx)) != -1) {
+	test_opts = ft_merge_long_opts(extra_opts, long_opts);
+	if (!test_opts)
+		return EXIT_FAILURE;
+
+	while ((op = getopt_long(argc, argv,
+				 "h" CS_OPTS INFO_OPTS BENCHMARK_OPTS API_OPTS,
+				 test_opts, &lopt_idx)) != -1) {
 		switch (op) {
 		case LONG_OPT_EXTERNAL_MEM:
 			use_ext_mem = true;

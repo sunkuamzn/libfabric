@@ -80,9 +80,12 @@ int main(int argc, char **argv)
 	if (!hints)
 		return EXIT_FAILURE;
 
-	while ((op = getopt(argc, argv, "Mh" ADDR_OPTS INFO_OPTS)) != -1) {
+	while ((op = getopt_long(argc, argv, "Mh" ADDR_OPTS INFO_OPTS,
+				 long_opts, &lopt_idx)) != -1) {
 		switch (op) {
 		default:
+			if (!ft_parse_long_opts(op, optarg))
+				continue;
 			ft_parse_addr_opts(op, optarg, &opts);
 			ft_parseinfo(op, optarg, hints, &opts);
 			break;
@@ -112,5 +115,6 @@ int main(int argc, char **argv)
 	return ft_exit_code(ret ? ret : cleanup_ret);
 usage:
 	ft_mcusage(argv[0], "A simple multicast example.");
+	ft_longopts_usage();
 	return EXIT_FAILURE;
 }

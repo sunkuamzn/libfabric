@@ -675,8 +675,9 @@ int main(int argc, char **argv)
 	opts = INIT_OPTS;
 	int ret, op;
 
-	while ((op = getopt(argc, argv, "u:q:xy:z:hfd:" ADDR_OPTS HMEM_OPTS))
-		!= -1) {
+	while ((op = getopt_long(argc, argv,
+				 "u:q:xy:z:hfd:" ADDR_OPTS HMEM_OPTS,
+				 long_opts, &lopt_idx)) != -1) {
 		switch (op) {
 		case 'u':
 			filename = strdup(optarg);
@@ -700,12 +701,15 @@ int main(int argc, char **argv)
 			domain_name = strdup(optarg);
 			break;
 		default:
+			if (!ft_parse_long_opts(op, optarg))
+				continue;
 			ft_parse_hmem_opts(op, optarg, &opts);
 			ft_parse_addr_opts(op, optarg, &opts);
 			break;
 		case '?':
 		case 'h':
 			ft_fw_usage(argv[0]);
+			ft_longopts_usage();
 			ft_free();
 			exit(1);
 		}
